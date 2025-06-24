@@ -22,7 +22,7 @@ public interface IRepository<TEntity, in TKey>
     /// Gets an entity by its primary key
     /// </summary>
     /// <param name="id">The primary key value</param>
-    /// <param name="enableTracking">Whether to enable change tracking for the entity</param>
+    /// <param name="disableTracking">Whether to disable change tracking</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>The entity if found, otherwise null</returns>
     Task<TEntity?> GetByIdAsync(TKey id, bool disableTracking = false, CancellationToken cancellationToken = default);
