@@ -11,7 +11,7 @@ public interface IRepository<TEntity, in TKey>
     where TKey : IEquatable<TKey>
 {
     // Temel CRUD Operasyonları
-    Task<TEntity?> GetByIdAsync(TKey id, bool enableTracking = false, CancellationToken cancellationToken = default);
+    Task<TEntity?> GetByIdAsync(TKey id, bool disableTracking = false, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<TEntity>> GetAllAsync(bool disableTracking = true, CancellationToken cancellationToken = default);
     Task<TEntity> AddAsync(TEntity entity, bool saveChanges = false, CancellationToken cancellationToken = default);
     Task UpdateAsync(TEntity entity, bool saveChanges = false, CancellationToken cancellationToken = default);

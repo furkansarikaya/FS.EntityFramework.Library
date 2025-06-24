@@ -16,8 +16,8 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
     protected readonly DbContext Context = context;
     protected readonly DbSet<TEntity> DbSet = context.Set<TEntity>();
 
-    public virtual async Task<TEntity?> GetByIdAsync(TKey id, bool enableTracking = false, CancellationToken cancellationToken = default) =>
-        enableTracking
+    public virtual async Task<TEntity?> GetByIdAsync(TKey id, bool disableTracking = false, CancellationToken cancellationToken = default) =>
+        disableTracking
             ? await DbSet.AsNoTracking().FirstOrDefaultAsync(e => e.Id.Equals(id), cancellationToken)
             : await DbSet.FindAsync([id], cancellationToken);
 
