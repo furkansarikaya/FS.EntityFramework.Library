@@ -8,8 +8,8 @@
         <!-- NuGet Package Metadata -->
         <PackageId>FS.EntityFramework.Library</PackageId>
         <Version>9.0.6</Version>
-        <Authors>Furkan Sarıkaya</Authors>
-        <Company>Furkan Sarıkaya</Company>
+        <Authors>Furkan SARIKAYA</Authors>
+        <Company>Furkan SARIKAYA</Company>
         <Product>FS EntityFramework Library</Product>
         <Description>A comprehensive Entity Framework library providing Repository pattern, Unit of Work, Specification pattern, dynamic filtering, and pagination support.</Description>
         <PackageTags>EntityFramework;Repository;UnitOfWork;Specification;Pagination;EF;Core;Audit;SoftDelete</PackageTags>
