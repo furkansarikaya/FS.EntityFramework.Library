@@ -1,7 +1,18 @@
 namespace FS.EntityFramework.Library.Paging;
 
+/// <summary>
+/// Implementation of IPaginate that provides pagination functionality
+/// </summary>
+/// <typeparam name="T">The type of items in the paginated collection</typeparam>
 public class Paginate<T> : IPaginate<T>
 {
+    /// <summary>
+    /// Initializes a new instance of the Paginate class with source data
+    /// </summary>
+    /// <param name="source">The source enumerable</param>
+    /// <param name="index">The page index</param>
+    /// <param name="size">The page size</param>
+    /// <param name="from">The starting index</param>
     internal Paginate(IEnumerable<T> source, int index, int size, int from)
     {
         var enumerable = source as T[] ?? source.ToArray();
@@ -32,6 +43,9 @@ public class Paginate<T> : IPaginate<T>
         }
     }
 
+    /// <summary>
+    /// Initializes a new empty instance of the Paginate class
+    /// </summary>
     internal Paginate()
     {
         Items = new T[0];
@@ -111,13 +125,29 @@ internal class Paginate<TSource, TResult> : IPaginate<TResult>
     public bool HasNext => Index - From + 1 < Pages;
 }
 
+/// <summary>
+/// Static methods for creating paginated results
+/// </summary>
 public static class Paginate
 {
+    /// <summary>
+    /// Creates an empty paginated result
+    /// </summary>
+    /// <typeparam name="T">The type of items</typeparam>
+    /// <returns>An empty paginated result</returns>
     public static IPaginate<T> Empty<T>()
     {
         return new Paginate<T>();
     }
 
+    /// <summary>
+    /// Creates a paginated result by converting from another paginated result
+    /// </summary>
+    /// <typeparam name="TResult">The result type</typeparam>
+    /// <typeparam name="TSource">The source type</typeparam>
+    /// <param name="source">The source paginated result</param>
+    /// <param name="converter">The conversion function</param>
+    /// <returns>A converted paginated result</returns>
     public static IPaginate<TResult> From<TResult, TSource>(IPaginate<TSource> source,
                                                             Func<IEnumerable<TSource>, IEnumerable<TResult>> converter)
     {

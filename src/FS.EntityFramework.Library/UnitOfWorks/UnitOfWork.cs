@@ -9,19 +9,37 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace FS.EntityFramework.Library.UnitOfWorks;
 
+/// <summary>
+/// Implementation of the Unit of Work pattern that coordinates multiple repositories
+/// and manages database transactions and change tracking
+/// </summary>
+/// <param name="context">The Entity Framework context</param>
+/// <param name="serviceProvider">The service provider for dependency injection</param>
 public class UnitOfWork(DbContext context, IServiceProvider serviceProvider)
     : IUnitOfWork
 {
+    /// <summary>
+    /// Thread-safe dictionary to cache repository instances
+    /// </summary>
     private readonly ConcurrentDictionary<Type, object> _repositories = new();
+    
+    /// <summary>
+    /// The current database transaction (if any)
+    /// </summary>
     private IDbContextTransaction? _currentTransaction;
+    
+    /// <summary>
+    /// Flag indicating whether the object has been disposed
+    /// </summary>
     private bool _disposed;
     
     // ===== GENERIC REPOSITORY ACCESS =====
     
     /// <summary>
-    /// Get specific repository implementation by type.
-    /// Bu method custom repository interface'lerinizi resolve ediyor.
+    /// Gets a specific repository implementation by type from the service container
     /// </summary>
+    /// <typeparam name="TRepository">The repository type to resolve</typeparam>
+    /// <returns>The repository instance</returns>
     public TRepository GetRepository<TRepository>() where TRepository : class
     {
         var repositoryType = typeof(TRepository);
@@ -38,9 +56,11 @@ public class UnitOfWork(DbContext context, IServiceProvider serviceProvider)
     }
     
     /// <summary>
-    /// Get generic repository for entities without specific repository.
-    /// Bu method generic IRepository<TEntity, TKey> access sağlıyor.
+    /// Gets a generic repository for the specified entity type
     /// </summary>
+    /// <typeparam name="TEntity">The entity type</typeparam>
+    /// <typeparam name="TKey">The entity's primary key type</typeparam>
+    /// <returns>A repository instance for the entity</returns>
     public IRepository<TEntity, TKey> GetRepository<TEntity, TKey>() 
         where TEntity : BaseEntity<TKey>
         where TKey : IEquatable<TKey>
@@ -61,6 +81,13 @@ public class UnitOfWork(DbContext context, IServiceProvider serviceProvider)
         });
     }
 
+    /// <summary>
+    /// Gets a generic repository for entities without specific repository implementation.
+    /// This method provides access to IRepository&lt;TEntity, TKey&gt;.
+    /// </summary>
+    /// <typeparam name="TEntity">The entity type</typeparam>
+    /// <typeparam name="TKey">The entity's primary key type</typeparam>
+    /// <returns>A repository instance for the entity</returns>
     public IRepository<TEntity, TKey> Repository<TEntity, TKey>() 
         where TEntity : BaseEntity<TKey> 
         where TKey : IEquatable<TKey>
@@ -78,17 +105,19 @@ public class UnitOfWork(DbContext context, IServiceProvider serviceProvider)
     // ===== PERSISTENCE OPERATIONS =====
     
     /// <summary>
-    /// Save all changes across all repositories.
-    /// BURADA tüm repository changes tek seferde persist ediliyor.
+    /// Saves all pending changes across all repositories to the database
     /// </summary>
+    /// <returns>The number of state entries written to the database</returns>
     public async Task<int> SaveChangesAsync()
     {
         return await context.SaveChangesAsync();
     }
     
     /// <summary>
-    /// Save all changes with cancellation token.
+    /// Saves all pending changes across all repositories to the database
     /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>The number of state entries written to the database</returns>
     public async Task<int> SaveChangesAsync(CancellationToken cancellationToken)
     {
         return await context.SaveChangesAsync(cancellationToken);
@@ -197,8 +226,11 @@ public class UnitOfWork(DbContext context, IServiceProvider serviceProvider)
     }
     
     /// <summary>
-    /// Get entity entry for state management.
+    /// Gets the entity entry for the specified entity for state management
     /// </summary>
+    /// <typeparam name="TEntity">The entity type</typeparam>
+    /// <param name="entity">The entity instance</param>
+    /// <returns>The entity entry</returns>
     public EntityEntry<TEntity> Entry<TEntity>(TEntity entity) where TEntity : class
     {
         return context.Entry(entity);
@@ -214,8 +246,12 @@ public class UnitOfWork(DbContext context, IServiceProvider serviceProvider)
         Dispose(true);
         GC.SuppressFinalize(this);
     }
-    
-    protected virtual void Dispose(bool disposing)
+
+    /// <summary>
+    /// Releases all resources used by the UnitOfWork
+    /// </summary>
+    /// <param name="disposing">True if disposing; otherwise, false</param>
+    private void Dispose(bool disposing)
     {
         if (_disposed || !disposing) return;
         _currentTransaction?.Dispose();

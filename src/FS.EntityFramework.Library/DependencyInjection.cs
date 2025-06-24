@@ -5,11 +5,17 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace FS.EntityFramework.Library;
 
+/// <summary>
+/// Extension methods for configuring dependency injection for the Entity Framework library
+/// </summary>
 public static class DependencyInjection
 {
     /// <summary>
-    /// Adds generic Unit of Work without audit interceptor
+    /// Adds the generic Unit of Work pattern implementation to the service collection
     /// </summary>
+    /// <typeparam name="TContext">The DbContext type</typeparam>
+    /// <param name="services">The service collection</param>
+    /// <returns>The service collection for chaining</returns>
     public static IServiceCollection AddGenericUnitOfWork<TContext>(this IServiceCollection services)
         where TContext : DbContext
     {
