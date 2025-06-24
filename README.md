@@ -2,6 +2,23 @@
 
 A comprehensive Entity Framework Core library providing Repository pattern, Unit of Work, Specification pattern, dynamic filtering, and pagination support for .NET applications.
 
+## 📋 Table of Contents
+- [Features](#features)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
+- [Usage Examples](#usage-examples)
+    - [Basic CRUD Operations](#basic-crud-operations)
+    - [Dynamic Filtering](#dynamic-filtering)
+    - [Specification Pattern](#specification-pattern)
+    - [Pagination](#pagination)
+    - [Unit of Work & Transactions](#unit-of-work--transactions)
+    - [Soft Delete](#soft-delete-with-global-query-filters)
+- [API Reference](#api-reference)
+- [Requirements](#requirements)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## Features
 
 - 🏗️ **Repository Pattern**: Generic repository implementation with advanced querying capabilities
