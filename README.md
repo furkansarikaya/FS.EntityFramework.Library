@@ -11,7 +11,10 @@ A comprehensive Entity Framework Core library providing Repository pattern, Unit
 - 📄 **Pagination**: Built-in pagination support with metadata
 - 🏷️ **Base Entities**: Pre-built base classes for entities with audit properties
 - 🔒 **Soft Delete**: Built-in soft delete functionality
+- ⏰ **Automatic Audit**: Automatic CreatedAt, UpdatedAt, DeletedAt tracking
+- 👤 **User Tracking**: Automatic CreatedBy, UpdatedBy, DeletedBy tracking
 - 💉 **Dependency Injection**: Easy integration with DI containers
+- 🔧 **Flexible User Context**: Works with any user service implementation
 
 ## Installation
 
@@ -23,11 +26,51 @@ dotnet add package FS.EntityFramework.Library
 
 ### 1. Configure Services
 
+#### Basic Setup (without audit)
 ```csharp
 services.AddDbContext<YourDbContext>(options =>
     options.UseSqlServer(connectionString));
 
 services.AddGenericUnitOfWork<YourDbContext>();
+```
+
+#### With Automatic Audit Support
+
+**Option A: Using your existing user service**
+```csharp
+// If you have your own ICurrentUserService
+services.AddScoped<ICurrentUserService, CurrentUserService>();
+
+services.AddGenericUnitOfWorkWithAudit<YourDbContext>(
+    provider => provider.GetRequiredService<ICurrentUserService>().UserId);
+```
+
+**Option B: Using HttpContext directly**
+```csharp
+services.AddHttpContextAccessor();
+
+services.AddGenericUnitOfWorkWithAudit<YourDbContext>(
+    provider =>
+    {
+        var httpContextAccessor = provider.GetRequiredService<IHttpContextAccessor>();
+        return httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    });
+```
+
+**Option C: Using IUserContext interface**
+```csharp
+public class MyUserContext : IUserContext
+{
+    public MyUserContext(ICurrentUserService currentUserService)
+    {
+        CurrentUser = currentUserService.UserId;
+    }
+    
+    public string? CurrentUser { get; }
+}
+
+services.AddScoped<IUserContext, MyUserContext>();
+services.AddGenericUnitOfWorkWithAudit<YourDbContext, MyUserContext>();
 ```
 
 ### 2. Create Your Entities
@@ -39,6 +82,15 @@ public class Product : BaseAuditableEntity<int>
     public decimal Price { get; set; }
     public string Description { get; set; } = string.Empty;
 }
+
+// When you save a product, these properties are automatically set:
+// - CreatedAt: DateTime.UtcNow (when entity is first created)
+// - CreatedBy: Current user ID (from your user context)
+// - UpdatedAt: DateTime.UtcNow (when entity is modified)
+// - UpdatedBy: Current user ID (when entity is modified)
+// - IsDeleted: false/true (for soft deletes)
+// - DeletedAt: DateTime.UtcNow (when entity is soft deleted)
+// - DeletedBy: Current user ID (when entity is soft deleted)
 ```
 
 ### 3. Use in Your Services
@@ -103,7 +155,38 @@ var spec = new ExpensiveProductsSpecification(1000);
 var expensiveProducts = await repository.GetAsync(spec);
 ```
 
-## API Reference
+### 6. Soft Delete with Global Query Filters
+
+```csharp
+// In your DbContext's OnModelCreating method:
+protected override void OnModelCreating(ModelBuilder modelBuilder)
+{
+    base.OnModelCreating(modelBuilder);
+    
+    // Apply global query filters to exclude soft-deleted entities
+    modelBuilder.ApplySoftDeleteQueryFilters();
+}
+
+// Usage examples:
+// Normal queries automatically exclude soft-deleted entities
+var activeProducts = await repository.GetAllAsync(); // Only non-deleted products
+
+// Include soft-deleted entities when needed
+var allProducts = await repository.GetQueryable()
+    .IncludeDeleted()
+    .ToListAsync();
+
+// Get only soft-deleted entities
+var deletedProducts = await repository.GetQueryable()
+    .OnlyDeleted()
+    .ToListAsync();
+
+// Soft delete (sets IsDeleted = true, keeps data in database)
+await repository.DeleteAsync(productId, saveChanges: true, isSoftDelete: true);
+
+// Hard delete (actually removes from database)
+await repository.DeleteAsync(productId, saveChanges: true, isSoftDelete: false);
+```
 
 ### IRepository<TEntity, TKey>
 

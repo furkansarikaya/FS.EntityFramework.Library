@@ -12,7 +12,7 @@
         <Company>Furkan Sarıkaya</Company>
         <Product>FS EntityFramework Library</Product>
         <Description>A comprehensive Entity Framework library providing Repository pattern, Unit of Work, Specification pattern, dynamic filtering, and pagination support.</Description>
-        <PackageTags>EntityFramework;Repository;UnitOfWork;Specification;Pagination;EF;Core</PackageTags>
+        <PackageTags>EntityFramework;Repository;UnitOfWork;Specification;Pagination;EF;Core;Audit;SoftDelete</PackageTags>
         <PackageProjectUrl>https://github.com/furkansarikaya/FS.EntityFramework.Library</PackageProjectUrl>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
