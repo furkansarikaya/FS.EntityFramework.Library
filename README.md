@@ -1,5 +1,10 @@
 # FS.EntityFramework.Library
 
+[![NuGet Version](https://img.shields.io/nuget/v/FS.EntityFramework.Library.svg)](https://www.nuget.org/packages/FS.EntityFramework.Library/)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/FS.EntityFramework.Library.svg)](https://www.nuget.org/packages/FS.EntityFramework.Library/)
+[![GitHub License](https://img.shields.io/github/license/yourusername/FS.EntityFramework.Library)](https://github.com/yourusername/FS.EntityFramework.Library/blob/main/LICENSE)
+[![GitHub Stars](https://img.shields.io/github/stars/yourusername/FS.EntityFramework.Library.svg)](https://github.com/yourusername/FS.EntityFramework.Library/stargazers)
+
 A comprehensive Entity Framework Core library providing Repository pattern, Unit of Work, Specification pattern, dynamic filtering, and pagination support for .NET applications.
 
 ## 📋 Table of Contents

@@ -7,7 +7,7 @@
 
         <!-- NuGet Package Metadata -->
         <PackageId>FS.EntityFramework.Library</PackageId>
-        <Version>9.0.6</Version>
+        <Version>9.0.6.1</Version>
         <Authors>Furkan SARIKAYA</Authors>
         <Company>Furkan SARIKAYA</Company>
         <Product>FS EntityFramework Library</Product>
