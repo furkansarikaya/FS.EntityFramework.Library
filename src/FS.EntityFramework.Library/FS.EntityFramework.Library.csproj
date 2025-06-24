@@ -15,7 +15,6 @@
         <PackageTags>EntityFramework;Repository;UnitOfWork;Specification;Pagination;EF;Core;Audit;SoftDelete</PackageTags>
         <PackageProjectUrl>https://github.com/furkansarikaya/FS.EntityFramework.Library</PackageProjectUrl>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
         <RepositoryUrl>https://github.com/furkansarikaya/FS.EntityFramework.Library</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
@@ -26,6 +25,9 @@
         <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).xml</DocumentationFile>
         <NoWarn>$(NoWarn);CS1591</NoWarn>
 
+        <!-- Package README -->
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+
         <!-- Symbol Package -->
         <IncludeSymbols>true</IncludeSymbols>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
@@ -33,6 +35,10 @@
 
     <ItemGroup>
       <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.6" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Include="..\..\README.md" Pack="true" PackagePath="\"/>
     </ItemGroup>
 
 </Project>
