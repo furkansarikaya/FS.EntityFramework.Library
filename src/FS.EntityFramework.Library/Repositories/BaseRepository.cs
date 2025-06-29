@@ -23,7 +23,7 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
     /// The Entity Framework context instance
     /// </summary>
     protected readonly DbContext Context = context;
-    
+
     /// <summary>
     /// The DbSet for the entity type
     /// </summary>
@@ -50,8 +50,8 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
     public virtual async Task<IReadOnlyList<TEntity>> GetAllAsync(bool disableTracking = true, CancellationToken cancellationToken = default)
     {
         var query = GetQueryable();
-        
-        if (disableTracking) 
+
+        if (disableTracking)
             query = query.AsNoTracking();
         return await query.ToListAsync(cancellationToken);
     }
@@ -83,26 +83,16 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
         if (saveChanges)
             await SaveChangesAsync(cancellationToken);
     }
-    
+
     /// <summary>
     /// Deletes an entity from the repository (supports soft delete)
     /// </summary>
     /// <param name="entity">The entity to delete</param>
     /// <param name="saveChanges">Whether to immediately save changes to the database</param>
-    /// <param name="isSoftDelete">Whether to perform a soft delete (if entity supports it)</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    public virtual async Task DeleteAsync(TEntity entity, bool saveChanges = false, bool isSoftDelete = true, CancellationToken cancellationToken = default)
+    public virtual async Task DeleteAsync(TEntity entity, bool saveChanges = false, CancellationToken cancellationToken = default)
     {
-        var hasIsDeleted = typeof(TEntity).GetProperty("IsDeleted") != null;
-
-        if (hasIsDeleted && isSoftDelete)
-        {
-            var isDeletedProperty = typeof(TEntity).GetProperty("IsDeleted");
-            isDeletedProperty!.SetValue(entity, true);
-            Context.Entry(entity).State = EntityState.Modified;
-        }
-        else
-            DbSet.Remove(entity);
+        DbSet.Remove(entity);
 
         if (saveChanges)
             await SaveChangesAsync(cancellationToken);
@@ -113,13 +103,44 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
     /// </summary>
     /// <param name="id">The primary key of the entity to delete</param>
     /// <param name="saveChanges">Whether to immediately save changes to the database</param>
-    /// <param name="isSoftDelete">Whether to perform a soft delete (if entity supports it)</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    public virtual async Task DeleteAsync(TKey id, bool saveChanges = false, bool isSoftDelete = true, CancellationToken cancellationToken = default)
+    public virtual async Task DeleteAsync(TKey id, bool saveChanges = false, CancellationToken cancellationToken = default)
     {
         var entity = await GetByIdAsync(id, cancellationToken: cancellationToken);
         if (entity != null)
-            await DeleteAsync(entity, saveChanges, isSoftDelete, cancellationToken);
+            await DeleteAsync(entity, saveChanges, cancellationToken);
+    }
+
+    /// <summary>
+    /// Restores a soft deleted entity (only if entity implements ISoftDelete)
+    /// </summary>
+    public virtual async Task RestoreAsync(TEntity entity, bool saveChanges = false, CancellationToken cancellationToken = default)
+    {
+        if (entity is not ISoftDelete softDeleteEntity)
+        {
+            throw new InvalidOperationException($"Entity {typeof(TEntity).Name} does not implement ISoftDelete interface");
+        }
+
+        softDeleteEntity.IsDeleted = false;
+        softDeleteEntity.DeletedAt = null;
+        softDeleteEntity.DeletedBy = null;
+        Context.Entry(entity).State = EntityState.Modified;
+
+        if (saveChanges)
+            await SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Restores a soft deleted entity by its primary key (only if entity implements ISoftDelete)
+    /// </summary>
+    public virtual async Task RestoreAsync(TKey id, bool saveChanges = false, CancellationToken cancellationToken = default)
+    {
+        // We need to ignore query filters to find soft-deleted entities
+        var entity = await DbSet.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(e => e.Id.Equals(id), cancellationToken);
+
+        if (entity != null)
+            await RestoreAsync(entity, saveChanges, cancellationToken);
     }
 
     /// <summary>
@@ -153,27 +174,11 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
     /// </summary>
     /// <param name="predicate">The predicate to filter entities for deletion</param>
     /// <param name="saveChanges">Whether to immediately save changes to the database</param>
-    /// <param name="isSoftDelete">Whether to perform a soft delete (if entities support it)</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    public async Task BulkDeleteAsync(Expression<Func<TEntity, bool>> predicate, bool saveChanges = false, bool isSoftDelete = true, CancellationToken cancellationToken = default)
+    public async Task BulkDeleteAsync(Expression<Func<TEntity, bool>> predicate, bool saveChanges = false, CancellationToken cancellationToken = default)
     {
-        var hasIsDeleted = typeof(TEntity).GetProperty("IsDeleted") != null;
-
-        if (hasIsDeleted && isSoftDelete)
-        {
-            var entities = await DbSet.Where(predicate).ToListAsync(cancellationToken);
-            foreach (var entity in entities)
-            {
-                var isDeletedProperty = typeof(TEntity).GetProperty("IsDeleted");
-                isDeletedProperty!.SetValue(entity, true);
-                Context.Entry(entity).State = EntityState.Modified;
-            }
-        }
-        else
-        {
-            var entities = await DbSet.Where(predicate).ToListAsync(cancellationToken);
-            DbSet.RemoveRange(entities);
-        }
+        var entities = await DbSet.Where(predicate).ToListAsync(cancellationToken);
+        DbSet.RemoveRange(entities);
 
         if (saveChanges)
             await SaveChangesAsync(cancellationToken);
@@ -203,14 +208,14 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
         CancellationToken cancellationToken = default)
     {
         var query = GetQueryable();
-        
-        if (disableTracking) 
+
+        if (disableTracking)
             query = query.AsNoTracking();
-            
+
         query = query.ApplySpecification(predicate)
-                     .ApplyInclude(includeString)
-                     .ApplyOrder(orderBy);
-                     
+            .ApplyInclude(includeString)
+            .ApplyOrder(orderBy);
+
         return await query.ToListAsync(cancellationToken);
     }
 
@@ -231,14 +236,14 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
         CancellationToken cancellationToken = default)
     {
         var query = GetQueryable();
-        
-        if (disableTracking) 
+
+        if (disableTracking)
             query = query.AsNoTracking();
-            
+
         query = query.ApplySpecification(predicate)
-                     .ApplyInclude(includes)
-                     .ApplyOrder(orderBy);
-                     
+            .ApplyInclude(includes)
+            .ApplyOrder(orderBy);
+
         return await query.ToListAsync(cancellationToken);
     }
 
@@ -271,13 +276,13 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
         CancellationToken cancellationToken = default)
     {
         var query = GetQueryable();
-        
-        if (disableTracking) 
+
+        if (disableTracking)
             query = query.AsNoTracking();
-            
+
         query = query.ApplySpecification(predicate)
-                     .ApplyInclude(includes)
-                     .ApplyOrder(orderBy);
+            .ApplyInclude(includes)
+            .ApplyOrder(orderBy);
 
         return await query.ToPaginateAsync(pageIndex, pageSize, 0, cancellationToken);
     }
@@ -299,17 +304,17 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
         int pageSize,
         Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>>? orderBy = null,
         List<Expression<Func<TEntity, object>>>? includes = null,
-        bool disableTracking = true, 
+        bool disableTracking = true,
         CancellationToken cancellationToken = default)
     {
         var query = GetQueryable();
-        
-        if (disableTracking) 
+
+        if (disableTracking)
             query = query.AsNoTracking();
-            
+
         query = query.ApplyFilter(filter)
-                     .ApplyInclude(includes)
-                     .ApplyOrder(orderBy);
+            .ApplyInclude(includes)
+            .ApplyOrder(orderBy);
 
         return await query.ToPaginateAsync(pageIndex, pageSize, 0, cancellationToken);
     }
@@ -339,11 +344,11 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
     public async Task<IEnumerable<TEntity>> FindAsync(Expression<Func<TEntity, bool>> predicate, Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>>? orderBy = null, List<Expression<Func<TEntity, object>>>? includes = null, bool disableTracking = true, CancellationToken cancellationToken = default)
     {
         var query = GetQueryable(disableTracking);
-        
+
         query = query.ApplySpecification(predicate)
-                     .ApplyInclude(includes)
-                     .ApplyOrder(orderBy);
-                     
+            .ApplyInclude(includes)
+            .ApplyOrder(orderBy);
+
         return await query.ToListAsync(cancellationToken);
     }
 
@@ -368,10 +373,10 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
     public virtual async Task<int> CountAsync(Expression<Func<TEntity, bool>>? predicate = null, CancellationToken cancellationToken = default)
     {
         var query = GetQueryable();
-        
+
         if (predicate != null)
             query = query.Where(predicate);
-            
+
         return await query.CountAsync(cancellationToken);
     }
 
@@ -381,7 +386,7 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
     /// <param name="disableTracking">Whether to disable change tracking</param>
     /// <returns>An IQueryable for the entity type</returns>
     public virtual IQueryable<TEntity> GetQueryable(bool disableTracking = true) => disableTracking ? DbSet.AsNoTracking() : DbSet;
-    
+
     /// <summary>
     /// Applies a specification to the queryable and returns the configured query
     /// </summary>
@@ -390,26 +395,26 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
     private IQueryable<TEntity> ApplySpecification(BaseSpecification<TEntity> spec)
     {
         var query = GetQueryable();
-        
+
         if (spec.Criteria != null)
             query = query.Where(spec.Criteria);
-            
+
         query = spec.Includes.Aggregate(query, (current, include) => current.Include(include));
-        
+
         query = spec.IncludeStrings.Aggregate(query, (current, include) => current.Include(include));
-        
+
         if (spec.OrderBy != null)
             query = query.OrderBy(spec.OrderBy);
-            
+
         if (spec.OrderByDescending != null)
             query = query.OrderByDescending(spec.OrderByDescending);
-            
+
         if (spec.GroupBy != null)
             query = query.GroupBy(spec.GroupBy).SelectMany(x => x);
-            
+
         if (spec.IsPagingEnabled)
             query = query.Skip(spec.Skip).Take(spec.Take);
-            
+
         return query;
     }
 }
