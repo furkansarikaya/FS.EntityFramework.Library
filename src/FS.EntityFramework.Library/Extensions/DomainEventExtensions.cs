@@ -114,7 +114,6 @@ public static class DomainEventExtensions
     /// Automatically scans and registers all domain event handlers from assemblies containing the specified types
     /// </summary>
     /// <param name="services">The service collection</param>
-    /// <param name="types">Types whose assemblies will be scanned</param>
     /// <returns>The service collection for chaining</returns>
     public static IServiceCollection AddDomainEventHandlersFromAssemblyContaining<T>(this IServiceCollection services)
     {
