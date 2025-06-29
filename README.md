@@ -5,13 +5,14 @@
 [![GitHub License](https://img.shields.io/github/license/furkansarikaya/FS.EntityFramework.Library)](https://github.com/furkansarikaya/FS.EntityFramework.Library/blob/main/LICENSE)
 [![GitHub Stars](https://img.shields.io/github/stars/furkansarikaya/FS.EntityFramework.Library.svg)](https://github.com/furkansarikaya/FS.EntityFramework.Library/stargazers)
 
-A comprehensive Entity Framework Core library providing Repository pattern, Unit of Work, Specification pattern, dynamic filtering, pagination support, and **Domain Events** for .NET applications.
+A comprehensive Entity Framework Core library providing Repository pattern, Unit of Work, Specification pattern, dynamic filtering, pagination support, **Domain Events**, and **Fluent Configuration API** for .NET applications.
 
 ## 📋 Table of Contents
 - [Features](#features)
 - [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Configuration](#configuration)
+- [Configuration Methods](#configuration-methods)
+  - [🆕 Fluent Configuration API (Recommended)](#-fluent-configuration-api-recommended)
+  - [Classic Configuration](#classic-configuration)
 - [Usage Examples](#usage-examples)
   - [Basic CRUD Operations](#basic-crud-operations)
   - [Dynamic Filtering](#dynamic-filtering)
@@ -37,6 +38,7 @@ A comprehensive Entity Framework Core library providing Repository pattern, Unit
 - ⏰ **Automatic Audit**: Automatic CreatedAt, UpdatedAt, DeletedAt tracking
 - 👤 **User Tracking**: Automatic CreatedBy, UpdatedBy, DeletedBy tracking
 - 🎯 **Domain Events**: Framework-agnostic domain event support (optional)
+- 🔗 **Fluent Configuration API**: Intuitive, chainable configuration (v9.0.6.2+)
 - 💉 **Dependency Injection**: Easy integration with DI containers
 - 🔧 **Flexible User Context**: Works with any user service implementation
 
@@ -46,9 +48,125 @@ A comprehensive Entity Framework Core library providing Repository pattern, Unit
 dotnet add package FS.EntityFramework.Library
 ```
 
-## Quick Start
+## Configuration Methods
 
-### 1. Configure Services
+You can configure FS.EntityFramework.Library using either the new **Fluent Configuration API** (recommended) or the classic approach.
+
+### 🆕 Fluent Configuration API (Recommended)
+
+The Fluent Configuration API provides an intuitive, chainable way to configure the library with better readability and validation.
+
+#### Basic Setup
+```csharp
+services.AddDbContext<YourDbContext>(options =>
+    options.UseSqlServer(connectionString));
+
+services.AddFSEntityFramework<YourDbContext>()
+    .Build();
+```
+
+#### With Audit Support
+```csharp
+// Using HttpContext (for web applications)
+services.AddFSEntityFramework<YourDbContext>()
+    .WithAudit()
+        .UsingHttpContext()
+    .Build();
+
+// Using custom user provider
+services.AddFSEntityFramework<YourDbContext>()
+    .WithAudit()
+        .UsingUserProvider(provider => 
+        {
+            var userService = provider.GetService<ICurrentUserService>();
+            return userService?.GetCurrentUserId();
+        })
+    .Build();
+
+// Using interface-based approach
+services.AddScoped<IUserContext, MyUserContext>();
+services.AddFSEntityFramework<YourDbContext>()
+    .WithAudit()
+        .UsingUserContext<IUserContext>()
+    .Build();
+
+// For testing with static user
+services.AddFSEntityFramework<YourDbContext>()
+    .WithAudit()
+        .UsingStaticUser("test-user-123")
+    .Build();
+```
+
+#### With Domain Events
+```csharp
+// Basic domain events with auto handler discovery
+services.AddFSEntityFramework<YourDbContext>()
+    .WithDomainEvents()
+        .UsingDefaultDispatcher()
+        .WithAutoHandlerDiscovery()
+    .Complete()
+    .Build();
+
+// With custom dispatcher (e.g., for MediatR integration)
+services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()));
+services.AddFSEntityFramework<YourDbContext>()
+    .WithDomainEvents()
+        .UsingCustomDispatcher<YourCustomDomainEventDispatcher>()
+        .WithAutoHandlerDiscovery(typeof(ProductCreatedEvent).Assembly)
+    .Complete()
+    .Build();
+
+// Advanced handler registration options
+services.AddFSEntityFramework<YourDbContext>()
+    .WithDomainEvents()
+        .UsingDefaultDispatcher()
+        .WithAutoHandlerDiscoveryFromTypes(typeof(ProductCreatedEvent), typeof(OrderPlacedEvent))
+        .WithAttributeBasedDiscovery(Assembly.GetExecutingAssembly())
+        .WithCustomHandlerDiscovery(
+            Assembly.GetExecutingAssembly(), 
+            type => type.Name.EndsWith("Handler") && !type.Name.Contains("Test"),
+            ServiceLifetime.Scoped)
+        .WithHandler<ProductCreatedEvent, ProductCreatedEventHandler>()
+    .Complete()
+    .Build();
+```
+
+#### Complete Setup with All Features
+```csharp
+services.AddFSEntityFramework<YourDbContext>()
+    .WithAudit()
+        .UsingHttpContext()
+    .WithDomainEvents()
+        .UsingDefaultDispatcher()
+        .WithAutoHandlerDiscovery()
+        .WithAttributeBasedDiscovery(Assembly.GetExecutingAssembly())
+    .Complete()
+    .WithSoftDelete()
+    .WithCustomRepository<Product, int, ProductRepository>()
+    .WithRepositoriesFromAssembly(Assembly.GetExecutingAssembly())
+    .ValidateConfiguration()
+    .Build();
+```
+
+#### Conditional Configuration
+```csharp
+services.AddFSEntityFramework<YourDbContext>()
+    .WithAudit()
+        .UsingHttpContext()
+    .When(isDevelopment, builder =>
+        builder.WithDomainEvents()
+            .UsingDefaultDispatcher()
+            .WithAutoHandlerDiscovery()
+        .Complete())
+    .When(!isDevelopment, builder =>
+        builder.WithServices(s => s.AddSingleton<ILoggingService, ProductionLoggingService>()))
+    .ValidateConfiguration()
+    .Build();
+```
+
+### Classic Configuration
+
+The original configuration methods are still supported for backward compatibility:
 
 #### Basic Setup (without audit)
 ```csharp
@@ -62,7 +180,6 @@ services.AddGenericUnitOfWork<YourDbContext>();
 
 **Option A: Using your existing user service**
 ```csharp
-// If you have your own ICurrentUserService
 services.AddScoped<ICurrentUserService, CurrentUserService>();
 
 services.AddGenericUnitOfWorkWithAudit<YourDbContext>(
@@ -97,7 +214,7 @@ services.AddScoped<IUserContext, MyUserContext>();
 services.AddGenericUnitOfWorkWithAudit<YourDbContext, MyUserContext>();
 ```
 
-#### With Domain Events Support (Optional)
+#### With Domain Events Support (Classic)
 
 **Simple Setup - Automatic Handler Registration:**
 ```csharp
@@ -106,9 +223,6 @@ services.AddDomainEventsWithHandlers();
 
 // Or from specific assembly
 services.AddDomainEventsWithHandlers(typeof(ProductCreatedEvent).Assembly);
-
-// With MediatR integration
-services.AddDomainEventsWithHandlers<MediatRDomainEventDispatcher>(typeof(ProductCreatedEvent).Assembly);
 ```
 
 **Advanced Setup - Manual Control:**
@@ -137,7 +251,9 @@ services.AddDomainEventHandlers(
 services.AddAttributedDomainEventHandlers(typeof(ProductEvents).Assembly);
 ```
 
-### 2. Create Your Entities
+## Usage Examples
+
+### Create Your Entities
 
 #### Basic Auditable Entity
 ```csharp
@@ -222,7 +338,7 @@ public class Product : BaseAuditableEntity<int>, ISoftDelete
 }
 ```
 
-### 3. Use in Your Services
+### Basic CRUD Operations
 
 ```csharp
 public class ProductService
@@ -278,7 +394,7 @@ public class ProductService
 }
 ```
 
-### 4. Dynamic Filtering
+### Dynamic Filtering
 
 ```csharp
 var filter = new FilterModel
@@ -294,7 +410,7 @@ var filter = new FilterModel
 var products = await repository.GetPagedWithFilterAsync(filter, 1, 10);
 ```
 
-### 5. Specification Pattern
+### Specification Pattern
 
 ```csharp
 public class ExpensiveProductsSpecification : BaseSpecification<Product>
@@ -312,7 +428,78 @@ var spec = new ExpensiveProductsSpecification(1000);
 var expensiveProducts = await repository.GetAsync(spec);
 ```
 
-### 6. Soft Delete & Restore
+### Pagination
+
+```csharp
+// Basic pagination
+var pagedProducts = await repository.GetPagedAsync(pageIndex: 1, pageSize: 10);
+
+// Pagination with filtering and ordering
+var pagedProducts = await repository.GetPagedAsync(
+    pageIndex: 1, 
+    pageSize: 10,
+    predicate: p => p.Price > 100,
+    orderBy: query => query.OrderBy(p => p.Name),
+    includes: new List<Expression<Func<Product, object>>> { p => p.Category }
+);
+
+// Access pagination metadata
+Console.WriteLine($"Total items: {pagedProducts.Count}");
+Console.WriteLine($"Total pages: {pagedProducts.Pages}");
+Console.WriteLine($"Has next page: {pagedProducts.HasNext}");
+Console.WriteLine($"Has previous page: {pagedProducts.HasPrevious}");
+```
+
+### Unit of Work & Transactions
+
+```csharp
+public class OrderService
+{
+    private readonly IUnitOfWork _unitOfWork;
+
+    public OrderService(IUnitOfWork unitOfWork)
+    {
+        _unitOfWork = unitOfWork;
+    }
+
+    public async Task CreateOrderWithProductsAsync(Order order, List<Product> products)
+    {
+        // Manual transaction management
+        await _unitOfWork.BeginTransactionAsync();
+        
+        try
+        {
+            var orderRepository = _unitOfWork.GetRepository<Order, int>();
+            var productRepository = _unitOfWork.GetRepository<Product, int>();
+            
+            await orderRepository.AddAsync(order);
+            await productRepository.BulkInsertAsync(products);
+            
+            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.CommitTransactionAsync();
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync();
+            throw;
+        }
+    }
+
+    public async Task<Order> CreateOrderWithTransactionScopeAsync(Order order)
+    {
+        // Automatic transaction management
+        return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+        {
+            var repository = _unitOfWork.GetRepository<Order, int>();
+            await repository.AddAsync(order);
+            await _unitOfWork.SaveChangesAsync();
+            return order;
+        });
+    }
+}
+```
+
+### Soft Delete & Restore
 
 ```csharp
 // In your DbContext's OnModelCreating method:
@@ -355,7 +542,7 @@ if (typeof(ISoftDelete).IsAssignableFrom(typeof(Product)))
 }
 ```
 
-### 7. Domain Events
+### Domain Events
 
 #### Create Domain Events
 ```csharp
@@ -417,28 +604,6 @@ public class ProductCreatedEventHandler : IDomainEventHandler<ProductCreatedEven
             cancellationToken);
     }
 }
-
-public class ProductDeletedEventHandler : IDomainEventHandler<ProductDeletedEvent>
-{
-    private readonly ILogger<ProductDeletedEventHandler> _logger;
-    private readonly ICacheService _cacheService;
-
-    public ProductDeletedEventHandler(
-        ILogger<ProductDeletedEventHandler> logger,
-        ICacheService cacheService)
-    {
-        _logger = logger;
-        _cacheService = cacheService;
-    }
-
-    public async Task Handle(ProductDeletedEvent domainEvent, CancellationToken cancellationToken = default)
-    {
-        _logger.LogInformation("Product deleted: {ProductName}", domainEvent.ProductName);
-
-        // Clear cache for deleted product
-        await _cacheService.RemoveAsync($"product:{domainEvent.ProductId}", cancellationToken);
-    }
-}
 ```
 
 **Advanced Handler with Attributes:**
@@ -483,22 +648,9 @@ public class GeneralAuditHandler :
 }
 ```
 
-**Registration Examples:**
+#### Custom Domain Event Dispatcher (Framework Integration)
 ```csharp
-// Automatic registration - handlers are discovered and registered automatically
-services.AddDomainEventsWithHandlers(); // Scans calling assembly
-
-// Manual registration (still supported for fine control)
-services.AddDomainEvents();
-services.AddDomainEventHandler<ProductCreatedEvent, ProductCreatedEventHandler>();
-
-// Attribute-based registration (for advanced control)
-services.AddDomainEvents();
-services.AddAttributedDomainEventHandlers(typeof(ProductCreatedEvent).Assembly);
-```
-
-#### Custom Domain Event Dispatcher (MediatR Integration)
-```csharp
+// Example: MediatR integration
 public class MediatRDomainEventDispatcher : IDomainEventDispatcher
 {
     private readonly IMediator _mediator;
@@ -522,18 +674,14 @@ public class MediatRDomainEventDispatcher : IDomainEventDispatcher
     }
 }
 
-// Register in DI - Multiple options available:
-
-// Option 1: All-in-one automatic setup
-services.AddDomainEventsWithHandlers<MediatRDomainEventDispatcher>(typeof(ProductCreatedEvent).Assembly);
-
-// Option 2: Manual setup with MediatR
+// Register with Fluent API
 services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()));
-services.AddDomainEvents<MediatRDomainEventDispatcher>();
-services.AddDomainEventHandlersFromAssembly(typeof(ProductCreatedEvent).Assembly);
-
-// Option 3: Basic setup with automatic handler discovery
-services.AddDomainEventsWithHandlers();
+services.AddFSEntityFramework<YourDbContext>()
+    .WithDomainEvents()
+        .UsingCustomDispatcher<MediatRDomainEventDispatcher>()
+        .WithAutoHandlerDiscovery(typeof(ProductCreatedEvent).Assembly)
+    .Complete()
+    .Build();
 ```
 
 ## API Reference
@@ -582,6 +730,22 @@ Framework-agnostic domain event system providing:
 - **Attribute Support**: Advanced control with `[DomainEventHandler]` attribute
 - **Multi-Event Handlers**: Single handler can process multiple event types
 
+### Fluent Configuration API
+
+**Main Builder Interface:**
+- **IFSEntityFrameworkBuilder**: Core fluent configuration interface
+
+**Configuration Builders:**
+- **IAuditConfigurationBuilder**: Configure audit functionality
+- **IDomainEventsConfigurationBuilder**: Configure domain events
+
+**Extension Methods:**
+- **WithAudit()**: Enable audit tracking
+- **WithDomainEvents()**: Enable domain events
+- **WithSoftDelete()**: Enable soft delete query filters
+- **WithCustomRepository()**: Register custom repositories
+- **ValidateConfiguration()**: Validate setup
+
 ### Audit Interfaces
 
 Type-safe audit implementation:
@@ -597,6 +761,15 @@ Type-safe audit implementation:
 - `ValueObject`: Base class for value objects with equality comparison
 
 ## Key Features
+
+### **🆕 Fluent Configuration API Benefits:**
+- ✅ **Chainable Configuration**: Intuitive method chaining for clean setup
+- ✅ **Framework Agnostic**: Use any event handling library (MediatR, MassTransit, custom)
+- ✅ **Flexible User Providers**: HttpContext, delegates, interfaces, or static users
+- ✅ **Auto-Discovery**: Automatic handler registration from assemblies
+- ✅ **Built-in Validation**: Configuration validation with helpful error messages
+- ✅ **Conditional Setup**: Environment-based configuration support
+- ✅ **Backward Compatible**: Classic configuration still supported
 
 ### **Soft Delete & Restore Benefits:**
 - ✅ **Interface-Based**: Clean separation using `ISoftDelete` interface
@@ -618,32 +791,66 @@ Type-safe audit implementation:
 - ✅ **Multi-Event Handlers**: Single handler can handle multiple event types
 - ✅ **Handler Ordering**: Control execution order with attributes
 
+### **Configuration Comparison:**
+
+| Feature | Fluent API | Classic API |
+|---------|------------|-------------|
+| Readability | ✅ Excellent | ⚠️ Good |
+| Validation | ✅ Built-in | ❌ Manual |
+| Chaining | ✅ Yes | ❌ No |
+| Conditional Setup | ✅ Yes | ⚠️ Limited |
+| Error Messages | ✅ Helpful | ⚠️ Generic |
+| IDE Support | ✅ Excellent | ⚠️ Good |
+
 ### **Handler Registration Options:**
 ```csharp
 // 1. Simplest - One line setup (recommended for most projects)
-services.AddDomainEventsWithHandlers();
+services.AddFSEntityFramework<MyDbContext>()
+    .WithDomainEvents()
+        .UsingDefaultDispatcher()
+        .WithAutoHandlerDiscovery()
+    .Complete()
+    .Build();
 
 // 2. Specific assembly
-services.AddDomainEventsWithHandlers(typeof(ProductEvents).Assembly);
+services.AddFSEntityFramework<MyDbContext>()
+    .WithDomainEvents()
+        .WithAutoHandlerDiscovery(typeof(ProductEvents).Assembly)
+    .Complete()
+    .Build();
 
 // 3. Multiple assemblies
-services.AddDomainEventHandlersFromAssemblies(
-    typeof(ProductEvents).Assembly,
-    typeof(OrderEvents).Assembly
-);
+services.AddFSEntityFramework<MyDbContext>()
+    .WithDomainEvents()
+        .WithAutoHandlerDiscovery(
+            typeof(ProductEvents).Assembly,
+            typeof(OrderEvents).Assembly)
+    .Complete()
+    .Build();
 
 // 4. Custom filtering
-services.AddDomainEventHandlers(
-    assembly,
-    type => type.Name.EndsWith("Handler"),
-    ServiceLifetime.Scoped
-);
+services.AddFSEntityFramework<MyDbContext>()
+    .WithDomainEvents()
+        .WithCustomHandlerDiscovery(
+            assembly,
+            type => type.Name.EndsWith("Handler"),
+            ServiceLifetime.Scoped)
+    .Complete()
+    .Build();
 
 // 5. Attribute-based (advanced control)
-services.AddAttributedDomainEventHandlers(assembly);
+services.AddFSEntityFramework<MyDbContext>()
+    .WithDomainEvents()
+        .WithAttributeBasedDiscovery(assembly)
+    .Complete()
+    .Build();
 
 // 6. Manual (fine-grained control)
-services.AddDomainEventHandler<ProductCreatedEvent, ProductCreatedEventHandler>();
+services.AddFSEntityFramework<MyDbContext>()
+    .WithDomainEvents()
+        .WithHandler<ProductCreatedEvent, ProductCreatedEventHandler>()
+    .Complete()
+    .Build();
 ```
 
 ### **Audit Features:**
@@ -704,10 +911,194 @@ await repository.DeleteAsync(entity); // Hard delete only
 // repository.RestoreAsync() throws InvalidOperationException
 ```
 
+### **Migration from Classic to Fluent API:**
+
+**Before (Classic):**
+```csharp
+services.AddGenericUnitOfWorkWithAudit<MyDbContext>(
+    provider => provider.GetRequiredService<ICurrentUserService>().UserId);
+
+services.AddDomainEvents();
+services.AddDomainEventHandler<ProductCreatedEvent, ProductCreatedEventHandler>();
+```
+
+**After (Fluent):**
+```csharp
+services.AddFSEntityFramework<MyDbContext>()
+    .WithAudit()
+        .UsingUserProvider(provider => 
+            provider.GetRequiredService<ICurrentUserService>().UserId)
+    .WithDomainEvents()
+        .UsingDefaultDispatcher()
+        .WithHandler<ProductCreatedEvent, ProductCreatedEventHandler>()
+    .Complete()
+    .Build();
+```
+
+## Best Practices
+
+### **Configuration Best Practices:**
+
+1. **Use Fluent API for new projects:**
+   ```csharp
+   services.AddFSEntityFramework<MyDbContext>()
+       .WithAudit()
+           .UsingHttpContext()
+       .ValidateConfiguration()
+       .Build();
+   ```
+
+2. **Validate configuration in development:**
+   ```csharp
+   services.AddFSEntityFramework<MyDbContext>()
+       .WithAudit()
+           .UsingHttpContext()
+       .When(isDevelopment, builder => builder.ValidateConfiguration())
+       .Build();
+   ```
+
+3. **Use conditional configuration for different environments:**
+   ```csharp
+   services.AddFSEntityFramework<MyDbContext>()
+       .WithAudit()
+           .UsingHttpContext()
+       .When(isProduction, builder =>
+           builder.WithDomainEvents()
+               .UsingCustomDispatcher<ProductionEventDispatcher>()
+               .WithAutoHandlerDiscovery()
+           .Complete())
+       .Build();
+   ```
+
+### **Entity Design Best Practices:**
+
+1. **Implement interfaces based on needs:**
+   ```csharp
+   // For entities that need audit + soft delete
+   public class Product : BaseAuditableEntity<int>, ISoftDelete
+   
+   // For entities that only need audit
+   public class Category : BaseAuditableEntity<int>
+   
+   // For simple entities
+   public class Tag : BaseEntity<int>
+   ```
+
+2. **Use factory methods for domain events:**
+   ```csharp
+   public static Product Create(string name, decimal price)
+   {
+       var product = new Product { Name = name, Price = price };
+       product.AddDomainEvent(new ProductCreatedEvent(product.Id, name));
+       return product;
+   }
+   ```
+
+### **Repository Usage Best Practices:**
+
+1. **Use specifications for complex queries:**
+   ```csharp
+   public class ActiveExpensiveProductsSpec : BaseSpecification<Product>
+   {
+       public ActiveExpensiveProductsSpec(decimal minPrice)
+       {
+           AddCriteria(p => p.Price >= minPrice && !p.IsDeleted);
+           AddInclude(p => p.Category);
+           ApplyOrderByDescending(p => p.CreatedAt);
+       }
+   }
+   ```
+
+2. **Use Unit of Work for transactions:**
+   ```csharp
+   public async Task<Order> ProcessOrderAsync(CreateOrderRequest request)
+   {
+       return await _unitOfWork.ExecuteInTransactionAsync(async () =>
+       {
+           // Multiple repository operations
+           var order = await CreateOrderAsync(request);
+           await UpdateInventoryAsync(request.Items);
+           await SendNotificationAsync(order);
+           return order;
+       });
+   }
+   ```
+
 ## Requirements
 
 - .NET 9.0 or later
 - Entity Framework Core 9.0.6 or later
+- Microsoft.AspNetCore.Http.Abstractions 2.3.0 or later (for HttpContext support)
+
+## Performance Considerations
+
+### **Query Performance:**
+- Use `disableTracking: true` for read-only operations
+- Implement proper indexing for filtered properties
+- Use specification pattern for complex reusable queries
+- Consider pagination for large datasets
+
+### **Domain Events Performance:**
+- Events are dispatched synchronously during SaveChanges
+- Consider async handlers for I/O operations
+- Use background services for heavy processing
+- Be mindful of handler execution order
+
+### **Soft Delete Performance:**
+- Global query filters automatically exclude soft-deleted entities
+- Use indexes on IsDeleted column for better performance
+- Consider archiving old soft-deleted records
+
+## Troubleshooting
+
+### **Common Configuration Issues:**
+
+1. **DbContext not registered error:**
+   ```csharp
+   // Ensure DbContext is registered before AddFSEntityFramework
+   services.AddDbContext<MyDbContext>(options => options.UseSqlServer(connectionString));
+   services.AddFSEntityFramework<MyDbContext>(); // Then register FS.EntityFramework
+   ```
+
+2. **Handler not found errors:**
+   ```csharp
+   // Ensure handlers are in the scanned assembly
+   services.AddFSEntityFramework<MyDbContext>()
+       .WithDomainEvents()
+           .WithAutoHandlerDiscovery(typeof(MyHandler).Assembly) // Specify correct assembly
+       .Complete()
+       .Build();
+   ```
+
+3. **Audit properties not being set:**
+   ```csharp
+   // Ensure audit is configured and user context is available
+   services.AddFSEntityFramework<MyDbContext>()
+       .WithAudit()
+           .UsingHttpContext() // or other user provider
+       .Build();
+   ```
+
+### **Debugging Tips:**
+
+1. **Enable validation in development:**
+   ```csharp
+   services.AddFSEntityFramework<MyDbContext>()
+       .ValidateConfiguration() // Will throw helpful errors
+       .Build();
+   ```
+
+2. **Check registration with validation:**
+   ```csharp
+   services.AddFSEntityFramework<MyDbContext>()
+       .WithServices(s => 
+       {
+           // Add debugging services
+           s.AddSingleton<IValidationService, ValidationService>();
+       })
+       .ValidateConfiguration()
+       .Build();
+   ```
 
 ## 🤝 Contributing
 
@@ -724,13 +1115,63 @@ We welcome contributions! This project is open source and benefits from communit
 - Add comprehensive tests for new features
 - Update documentation for any public API changes
 - Ensure backward compatibility when possible
+- Use the Fluent Configuration API for new features
+
+**Areas for Contribution:**
+- Additional domain event dispatchers (Mass Transit, NServiceBus, etc.)
+- Performance optimizations
+- Additional specification implementations
+- Documentation improvements
+- Example projects
 
 ## 📄 License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+## Changelog
+
+### v9.0.6.2 - Added Fluent Configuration API
+- **NEW**: Fluent Configuration API for intuitive setup with method chaining
+- **NEW**: Flexible Domain Events support with custom dispatcher integration
+- **NEW**: Enhanced Audit configuration with multiple user provider options
+- **NEW**: Advanced repository registration with assembly scanning
+- **NEW**: Conditional configuration support for different environments
+- **NEW**: Comprehensive validation and error handling
+- **IMPROVED**: Better separation of concerns and cleaner API design
+- **IMPROVED**: Framework-agnostic approach - integrate with any event handling library
+- **IMPROVED**: More flexible and extensible configuration options
+
+**Breaking Changes**: None - Fully backward compatible with existing configurations
+
+### v9.0.6.1 - Initial Release
+- Repository pattern implementation
+- Unit of Work pattern
+- Specification pattern
+- Dynamic filtering
+- Pagination support
+- Domain Events (basic)
+- Audit tracking
+- Soft delete functionality
+
+## 🌟 Star History
+
+If you find this library useful, please consider giving it a star on GitHub! It helps others discover the project.
 
 **Made with ❤️ by [Furkan Sarıkaya](https://github.com/furkansarikaya)**
 
 [![GitHub](https://img.shields.io/badge/github-%23121011.svg?style=for-the-badge&logo=github&logoColor=white)](https://github.com/furkansarikaya)
 [![LinkedIn](https://img.shields.io/badge/linkedin-%230077B5.svg?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/furkansarikaya/)
 [![Medium](https://img.shields.io/badge/medium-%23121011.svg?style=for-the-badge&logo=medium&logoColor=white)](https://medium.com/@furkansarikaya)
+
+---
+
+## Support
+
+If you encounter any issues or have questions:
+
+1. Check the [troubleshooting section](#troubleshooting)
+2. Search existing [GitHub issues](https://github.com/furkansarikaya/FS.EntityFramework.Library/issues)
+3. Create a new issue with detailed information
+4. Join our community discussions
+
+**Happy coding! 🚀**

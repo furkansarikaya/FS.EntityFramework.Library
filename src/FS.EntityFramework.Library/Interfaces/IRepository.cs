@@ -107,7 +107,6 @@ public interface IRepository<TEntity, in TKey>
     /// </summary>
     /// <param name="predicate">The predicate to filter entities for deletion</param>
     /// <param name="saveChanges">Whether to immediately save changes to the database</param>
-    /// <param name="isSoftDelete">Whether to perform a soft delete (if entities support it)</param>
     /// <param name="cancellationToken">Cancellation token</param>
     Task BulkDeleteAsync(Expression<Func<TEntity, bool>> predicate, bool saveChanges = false, CancellationToken cancellationToken = default);
     

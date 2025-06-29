@@ -7,18 +7,31 @@
 
         <!-- NuGet Package Metadata -->
         <PackageId>FS.EntityFramework.Library</PackageId>
-        <Version>9.0.6.1</Version>
+        <Version>9.0.6.2</Version>
         <Authors>Furkan SARIKAYA</Authors>
         <Company>Furkan SARIKAYA</Company>
         <Product>FS EntityFramework Library</Product>
-        <Description>A comprehensive Entity Framework library providing Repository pattern, Unit of Work, Specification pattern, dynamic filtering, and pagination support.</Description>
-        <PackageTags>EntityFramework;Repository;UnitOfWork;Specification;Pagination;EF;Core;Audit;SoftDelete</PackageTags>
+        <Description>A comprehensive Entity Framework Core library providing Repository pattern, Unit of Work, Specification pattern, dynamic filtering, pagination support, Domain Events, and Fluent Configuration API for .NET applications.</Description>
+        <PackageTags>EntityFramework;Repository;UnitOfWork;Specification;Pagination;EF;Core;Audit;SoftDelete;DomainEvents;FluentAPI;Configuration</PackageTags>
         <PackageProjectUrl>https://github.com/furkansarikaya/FS.EntityFramework.Library</PackageProjectUrl>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
         <RepositoryUrl>https://github.com/furkansarikaya/FS.EntityFramework.Library</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
-        <PackageReleaseNotes>Initial release with Repository pattern, Unit of Work, and dynamic filtering support.</PackageReleaseNotes>
+        <PackageReleaseNotes>
+            Version 9.0.6.2 - Added Fluent Configuration API
+            - NEW: Fluent Configuration API for intuitive setup with method chaining
+            - NEW: Flexible Domain Events support with custom dispatcher integration
+            - NEW: Enhanced Audit configuration with multiple user provider options
+            - NEW: Advanced repository registration with assembly scanning
+            - NEW: Conditional configuration support for different environments
+            - NEW: Comprehensive validation and error handling
+            - IMPROVED: Better separation of concerns and cleaner API design
+            - IMPROVED: Framework-agnostic approach - integrate with any event handling library
+            - IMPROVED: More flexible and extensible configuration options
+
+            Breaking Changes: None - Fully backward compatible with existing configurations
+        </PackageReleaseNotes>
 
         <!-- Documentation -->
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
@@ -34,7 +47,9 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.6" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.6"/>
+        <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.0"/>
+        <PackageReference Include="Microsoft.AspNetCore.Http" Version="2.3.0"/>
     </ItemGroup>
 
     <ItemGroup>
