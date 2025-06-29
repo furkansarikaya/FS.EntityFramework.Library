@@ -18,7 +18,7 @@ A comprehensive Entity Framework Core library providing Repository pattern, Unit
   - [Specification Pattern](#specification-pattern)
   - [Pagination](#pagination)
   - [Unit of Work & Transactions](#unit-of-work--transactions)
-  - [Soft Delete](#soft-delete-with-global-query-filters)
+  - [Soft Delete & Restore](#soft-delete--restore)
   - [Domain Events](#domain-events)
 - [API Reference](#api-reference)
 - [Requirements](#requirements)
@@ -33,7 +33,7 @@ A comprehensive Entity Framework Core library providing Repository pattern, Unit
 - 🔍 **Dynamic Filtering**: Build dynamic queries from filter models
 - 📄 **Pagination**: Built-in pagination support with metadata
 - 🏷️ **Base Entities**: Pre-built base classes for entities with audit properties
-- 🔒 **Soft Delete**: Built-in soft delete functionality
+- 🔒 **Soft Delete & Restore**: Interface-based soft delete functionality with restore capability
 - ⏰ **Automatic Audit**: Automatic CreatedAt, UpdatedAt, DeletedAt tracking
 - 👤 **User Tracking**: Automatic CreatedBy, UpdatedBy, DeletedBy tracking
 - 🎯 **Domain Events**: Framework-agnostic domain event support (optional)
@@ -139,7 +139,7 @@ services.AddAttributedDomainEventHandlers(typeof(ProductEvents).Assembly);
 
 ### 2. Create Your Entities
 
-#### Basic Entity
+#### Basic Auditable Entity
 ```csharp
 public class Product : BaseAuditableEntity<int>
 {
@@ -153,18 +153,41 @@ public class Product : BaseAuditableEntity<int>
 // - CreatedBy: Current user ID (from your user context)
 // - UpdatedAt: DateTime.UtcNow (when entity is modified)
 // - UpdatedBy: Current user ID (when entity is modified)
-// - IsDeleted: false/true (for soft deletes)
-// - DeletedAt: DateTime.UtcNow (when entity is soft deleted)
-// - DeletedBy: Current user ID (when entity is soft deleted)
 ```
 
-#### Entity with Domain Events
+#### Entity with Soft Delete Support
 ```csharp
-public class Product : BaseAuditableEntity<int>
+// Create a soft deletable entity by implementing ISoftDelete interface
+public class Product : BaseAuditableEntity<int>, ISoftDelete
 {
     public string Name { get; set; } = string.Empty;
     public decimal Price { get; set; }
     public string Description { get; set; } = string.Empty;
+
+    // ISoftDelete properties - automatically handled by AuditInterceptor
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAt { get; set; }
+    public string? DeletedBy { get; set; }
+}
+
+// When you delete a product:
+// - IsDeleted: Set to true (logical deletion)
+// - DeletedAt: DateTime.UtcNow (when entity is soft deleted)
+// - DeletedBy: Current user ID (who performed the deletion)
+```
+
+#### Entity with Domain Events
+```csharp
+public class Product : BaseAuditableEntity<int>, ISoftDelete
+{
+    public string Name { get; set; } = string.Empty;
+    public decimal Price { get; set; }
+    public string Description { get; set; } = string.Empty;
+
+    // ISoftDelete properties
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAt { get; set; }
+    public string? DeletedBy { get; set; }
 
     // Factory method that raises domain events
     public static Product Create(string name, decimal price, string description)
@@ -189,6 +212,12 @@ public class Product : BaseAuditableEntity<int>
         
         // Raise domain event for price change
         AddDomainEvent(new ProductPriceChangedEvent(Id, oldPrice, newPrice));
+    }
+
+    public void Delete()
+    {
+        // Add domain event before deletion
+        AddDomainEvent(new ProductDeletedEvent(Id, Name));
     }
 }
 ```
@@ -217,6 +246,28 @@ public class ProductService
         await _unitOfWork.SaveChangesAsync();
         
         return product;
+    }
+
+    public async Task DeleteProductAsync(int productId)
+    {
+        var repository = _unitOfWork.GetRepository<Product, int>();
+        var product = await repository.GetByIdAsync(productId);
+        
+        if (product != null)
+        {
+            product.Delete(); // Raises domain event
+            
+            // Soft delete (if entity implements ISoftDelete)
+            await repository.DeleteAsync(product, saveChanges: true);
+        }
+    }
+
+    public async Task RestoreProductAsync(int productId)
+    {
+        var repository = _unitOfWork.GetRepository<Product, int>();
+        
+        // Restore a soft-deleted product
+        await repository.RestoreAsync(productId, saveChanges: true);
     }
 
     public async Task<IPaginate<Product>> GetProductsAsync(int page, int size)
@@ -261,7 +312,7 @@ var spec = new ExpensiveProductsSpecification(1000);
 var expensiveProducts = await repository.GetAsync(spec);
 ```
 
-### 6. Soft Delete with Global Query Filters
+### 6. Soft Delete & Restore
 
 ```csharp
 // In your DbContext's OnModelCreating method:
@@ -274,6 +325,7 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 }
 
 // Usage examples:
+
 // Normal queries automatically exclude soft-deleted entities
 var activeProducts = await repository.GetAllAsync(); // Only non-deleted products
 
@@ -287,11 +339,20 @@ var deletedProducts = await repository.GetQueryable()
     .OnlyDeleted()
     .ToListAsync();
 
-// Soft delete (sets IsDeleted = true, keeps data in database)
-await repository.DeleteAsync(productId, saveChanges: true, isSoftDelete: true);
+// Soft delete (entity must implement ISoftDelete)
+await repository.DeleteAsync(productId, saveChanges: true);
+// Sets: IsDeleted = true, DeletedAt = DateTime.UtcNow, DeletedBy = currentUser
 
-// Hard delete (actually removes from database)
-await repository.DeleteAsync(productId, saveChanges: true, isSoftDelete: false);
+// Restore a soft-deleted entity
+await repository.RestoreAsync(productId, saveChanges: true);
+// Sets: IsDeleted = false, DeletedAt = null, DeletedBy = null
+
+// Check if entity is soft deletable
+if (typeof(ISoftDelete).IsAssignableFrom(typeof(Product)))
+{
+    // Entity supports soft delete operations
+    await repository.RestoreAsync(productId);
+}
 ```
 
 ### 7. Domain Events
@@ -313,19 +374,17 @@ public class ProductCreatedEvent : DomainEvent
     public decimal Price { get; }
 }
 
-// Domain event for price changes
-public class ProductPriceChangedEvent : DomainEvent
+// Domain event for product deletion
+public class ProductDeletedEvent : DomainEvent
 {
-    public ProductPriceChangedEvent(int productId, decimal oldPrice, decimal newPrice)
+    public ProductDeletedEvent(int productId, string productName)
     {
         ProductId = productId;
-        OldPrice = oldPrice;
-        NewPrice = newPrice;
+        ProductName = productName;
     }
 
     public int ProductId { get; }
-    public decimal OldPrice { get; }
-    public decimal NewPrice { get; }
+    public string ProductName { get; }
 }
 ```
 
@@ -359,23 +418,25 @@ public class ProductCreatedEventHandler : IDomainEventHandler<ProductCreatedEven
     }
 }
 
-public class ProductPriceChangedEventHandler : IDomainEventHandler<ProductPriceChangedEvent>
+public class ProductDeletedEventHandler : IDomainEventHandler<ProductDeletedEvent>
 {
-    private readonly INotificationService _notificationService;
+    private readonly ILogger<ProductDeletedEventHandler> _logger;
+    private readonly ICacheService _cacheService;
 
-    public ProductPriceChangedEventHandler(INotificationService notificationService)
+    public ProductDeletedEventHandler(
+        ILogger<ProductDeletedEventHandler> logger,
+        ICacheService cacheService)
     {
-        _notificationService = notificationService;
+        _logger = logger;
+        _cacheService = cacheService;
     }
 
-    public async Task Handle(ProductPriceChangedEvent domainEvent, CancellationToken cancellationToken = default)
+    public async Task Handle(ProductDeletedEvent domainEvent, CancellationToken cancellationToken = default)
     {
-        // Notify interested customers about price change
-        await _notificationService.NotifyPriceChangeAsync(
-            domainEvent.ProductId,
-            domainEvent.OldPrice,
-            domainEvent.NewPrice,
-            cancellationToken);
+        _logger.LogInformation("Product deleted: {ProductName}", domainEvent.ProductName);
+
+        // Clear cache for deleted product
+        await _cacheService.RemoveAsync($"product:{domainEvent.ProductId}", cancellationToken);
     }
 }
 ```
@@ -401,7 +462,7 @@ public class ProductCreatedAuditHandler : IDomainEventHandler<ProductCreatedEven
 // Handler for multiple events
 public class GeneralAuditHandler : 
     IDomainEventHandler<ProductCreatedEvent>,
-    IDomainEventHandler<ProductPriceChangedEvent>
+    IDomainEventHandler<ProductDeletedEvent>
 {
     private readonly IAuditService _auditService;
 
@@ -415,9 +476,9 @@ public class GeneralAuditHandler :
         await _auditService.LogEventAsync("ProductCreated", domainEvent, cancellationToken);
     }
 
-    public async Task Handle(ProductPriceChangedEvent domainEvent, CancellationToken cancellationToken = default)
+    public async Task Handle(ProductDeletedEvent domainEvent, CancellationToken cancellationToken = default)
     {
-        await _auditService.LogEventAsync("ProductPriceChanged", domainEvent, cancellationToken);
+        await _auditService.LogEventAsync("ProductDeleted", domainEvent, cancellationToken);
     }
 }
 ```
@@ -473,40 +534,6 @@ services.AddDomainEventHandlersFromAssembly(typeof(ProductCreatedEvent).Assembly
 
 // Option 3: Basic setup with automatic handler discovery
 services.AddDomainEventsWithHandlers();
-
-```
-
-#### Manual Domain Event Dispatch
-```csharp
-public class ProductService
-{
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly IDomainEventDispatcher _eventDispatcher;
-
-    public ProductService(IUnitOfWork unitOfWork, IDomainEventDispatcher eventDispatcher)
-    {
-        _unitOfWork = unitOfWork;
-        _eventDispatcher = eventDispatcher;
-    }
-
-    public async Task UpdateProductPriceAsync(int productId, decimal newPrice)
-    {
-        var repository = _unitOfWork.GetRepository<Product, int>();
-        var product = await repository.GetByIdAsync(productId);
-        
-        if (product != null)
-        {
-            product.UpdatePrice(newPrice);
-            await repository.UpdateAsync(product);
-            
-            // Manual dispatch if needed (automatic dispatch happens on SaveChanges)
-            await _eventDispatcher.DispatchAsync(product.DomainEvents);
-            product.ClearDomainEvents();
-            
-            await _unitOfWork.SaveChangesAsync();
-        }
-    }
-}
 ```
 
 ## API Reference
@@ -515,7 +542,8 @@ public class ProductService
 
 Core repository interface providing:
 
-- Basic CRUD operations
+- Basic CRUD operations with soft delete support
+- **RestoreAsync**: Restore soft-deleted entities
 - Advanced querying with includes and ordering
 - Pagination support
 - Bulk operations
@@ -554,13 +582,29 @@ Framework-agnostic domain event system providing:
 - **Attribute Support**: Advanced control with `[DomainEventHandler]` attribute
 - **Multi-Event Handlers**: Single handler can process multiple event types
 
+### Audit Interfaces
+
+Type-safe audit implementation:
+
+- **ICreationAuditableEntity**: Provides CreatedAt and CreatedBy properties
+- **IModificationAuditableEntity**: Provides UpdatedAt and UpdatedBy properties
+- **ISoftDelete**: Provides IsDeleted, DeletedAt, and DeletedBy properties
+
 ## Base Classes
 
 - `BaseEntity<TKey>`: Simple entity with Id property and optional domain events support
-- `BaseAuditableEntity<TKey>`: Entity with audit properties (CreatedAt, UpdatedAt, etc.) and domain events
+- `BaseAuditableEntity<TKey>`: Entity with creation and modification audit properties and domain events
 - `ValueObject`: Base class for value objects with equality comparison
 
 ## Key Features
+
+### **Soft Delete & Restore Benefits:**
+- ✅ **Interface-Based**: Clean separation using `ISoftDelete` interface
+- ✅ **Type-Safe**: Compile-time checking for soft delete capabilities
+- ✅ **Restore Functionality**: Built-in `RestoreAsync` methods to recover deleted entities
+- ✅ **Global Query Filters**: Automatic exclusion of soft-deleted entities
+- ✅ **Flexible Queries**: Include deleted or only deleted entity queries
+- ✅ **Automatic Audit**: Automatic tracking of deletion and restoration
 
 ### **Domain Events Benefits:**
 - ✅ **Framework Agnostic**: Works with any event handling library (MediatR, Mass Transit, etc.)
@@ -603,31 +647,90 @@ services.AddDomainEventHandler<ProductCreatedEvent, ProductCreatedEventHandler>(
 ```
 
 ### **Audit Features:**
+- ✅ **Interface-Based Design**: Type-safe audit implementation with specific interfaces
 - ✅ **Automatic Tracking**: CreatedAt, UpdatedAt, DeletedAt timestamps
 - ✅ **User Tracking**: CreatedBy, UpdatedBy, DeletedBy user identification
 - ✅ **Flexible User Context**: Works with any authentication system
-- ✅ **Soft Delete Support**: Logical deletion with IsDeleted flag
+- ✅ **Granular Control**: Choose which audit features to implement per entity
 
 ### **Repository Features:**
 - ✅ **Generic Implementation**: Works with any entity type
+- ✅ **Soft Delete Support**: Built-in soft delete and restore operations
 - ✅ **Dynamic Filtering**: Build complex queries from filter models
 - ✅ **Specification Pattern**: Reusable and composable query specifications
 - ✅ **Pagination**: Built-in pagination with metadata
 - ✅ **Bulk Operations**: Efficient bulk insert, update, and delete operations
+
+## Usage Patterns
+
+### **Soft Delete Entity Creation:**
+```csharp
+// Option 1: Implement ISoftDelete on existing auditable entity
+public class Product : BaseAuditableEntity<int>, ISoftDelete
+{
+    // Entity properties
+    public string Name { get; set; } = string.Empty;
+    
+    // ISoftDelete properties (required)
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAt { get; set; }
+    public string? DeletedBy { get; set; }
+}
+
+// Option 2: Only basic audit (no soft delete)
+public class Category : BaseAuditableEntity<int>
+{
+    public string Name { get; set; } = string.Empty;
+    // No ISoftDelete - hard deletes only
+}
+
+// Option 3: Minimal entity (no audit, no soft delete)
+public class Tag : BaseEntity<int>
+{
+    public string Name { get; set; } = string.Empty;
+    // Only basic entity with domain events support
+}
+```
+
+### **Repository Usage with Soft Delete:**
+```csharp
+// Entities that implement ISoftDelete automatically support:
+await repository.DeleteAsync(entity); // Soft delete
+await repository.RestoreAsync(entity); // Restore
+await repository.RestoreAsync(id); // Restore by ID
+
+// Entities that don't implement ISoftDelete:
+await repository.DeleteAsync(entity); // Hard delete only
+// repository.RestoreAsync() throws InvalidOperationException
+```
 
 ## Requirements
 
 - .NET 9.0 or later
 - Entity Framework Core 9.0.6 or later
 
-## Contributing
+## 🤝 Contributing
 
-Contributions are welcome! Please read our contributing guidelines and submit pull requests.
+We welcome contributions! This project is open source and benefits from community involvement:
 
-## License
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+**Development Guidelines:**
+- Follow existing code patterns and conventions
+- Add comprehensive tests for new features
+- Update documentation for any public API changes
+- Ensure backward compatibility when possible
 
-## Support
+## 📄 License
 
-If you encounter any issues or have questions, please open an issue on our GitHub repository.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+**Made with ❤️ by [Furkan Sarıkaya](https://github.com/furkansarikaya)**
+
+[![GitHub](https://img.shields.io/badge/github-%23121011.svg?style=for-the-badge&logo=github&logoColor=white)](https://github.com/furkansarikaya)
+[![LinkedIn](https://img.shields.io/badge/linkedin-%230077B5.svg?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/furkansarikaya/)
+[![Medium](https://img.shields.io/badge/medium-%23121011.svg?style=for-the-badge&logo=medium&logoColor=white)](https://medium.com/@furkansarikaya)
