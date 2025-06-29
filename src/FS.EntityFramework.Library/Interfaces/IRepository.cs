@@ -57,18 +57,16 @@ public interface IRepository<TEntity, in TKey>
     /// </summary>
     /// <param name="entity">The entity to delete</param>
     /// <param name="saveChanges">Whether to immediately save changes to the database</param>
-    /// <param name="isSoftDelete">Whether to perform a soft delete (if entity supports it)</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    Task DeleteAsync(TEntity entity, bool saveChanges = false, bool isSoftDelete = true, CancellationToken cancellationToken = default);
+    Task DeleteAsync(TEntity entity, bool saveChanges = false, CancellationToken cancellationToken = default);
     
     /// <summary>
     /// Deletes an entity by its primary key
     /// </summary>
     /// <param name="id">The primary key of the entity to delete</param>
     /// <param name="saveChanges">Whether to immediately save changes to the database</param>
-    /// <param name="isSoftDelete">Whether to perform a soft delete (if entity supports it)</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    Task DeleteAsync(TKey id, bool saveChanges = false, bool isSoftDelete = true, CancellationToken cancellationToken = default);
+    Task DeleteAsync(TKey id, bool saveChanges = false, CancellationToken cancellationToken = default);
     
     // Bulk Operations
     
@@ -95,7 +93,7 @@ public interface IRepository<TEntity, in TKey>
     /// <param name="saveChanges">Whether to immediately save changes to the database</param>
     /// <param name="isSoftDelete">Whether to perform a soft delete (if entities support it)</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    Task BulkDeleteAsync(Expression<Func<TEntity, bool>> predicate, bool saveChanges = false, bool isSoftDelete = true, CancellationToken cancellationToken = default);
+    Task BulkDeleteAsync(Expression<Func<TEntity, bool>> predicate, bool saveChanges = false, CancellationToken cancellationToken = default);
     
     /// <summary>
     /// Saves all pending changes to the database

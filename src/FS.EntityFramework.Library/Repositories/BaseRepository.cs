@@ -83,26 +83,16 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
         if (saveChanges)
             await SaveChangesAsync(cancellationToken);
     }
-    
+
     /// <summary>
     /// Deletes an entity from the repository (supports soft delete)
     /// </summary>
     /// <param name="entity">The entity to delete</param>
     /// <param name="saveChanges">Whether to immediately save changes to the database</param>
-    /// <param name="isSoftDelete">Whether to perform a soft delete (if entity supports it)</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    public virtual async Task DeleteAsync(TEntity entity, bool saveChanges = false, bool isSoftDelete = true, CancellationToken cancellationToken = default)
+    public virtual async Task DeleteAsync(TEntity entity, bool saveChanges = false, CancellationToken cancellationToken = default)
     {
-        var hasIsDeleted = typeof(TEntity).GetProperty("IsDeleted") != null;
-
-        if (hasIsDeleted && isSoftDelete)
-        {
-            var isDeletedProperty = typeof(TEntity).GetProperty("IsDeleted");
-            isDeletedProperty!.SetValue(entity, true);
-            Context.Entry(entity).State = EntityState.Modified;
-        }
-        else
-            DbSet.Remove(entity);
+        DbSet.Remove(entity);
 
         if (saveChanges)
             await SaveChangesAsync(cancellationToken);
@@ -113,13 +103,12 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
     /// </summary>
     /// <param name="id">The primary key of the entity to delete</param>
     /// <param name="saveChanges">Whether to immediately save changes to the database</param>
-    /// <param name="isSoftDelete">Whether to perform a soft delete (if entity supports it)</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    public virtual async Task DeleteAsync(TKey id, bool saveChanges = false, bool isSoftDelete = true, CancellationToken cancellationToken = default)
+    public virtual async Task DeleteAsync(TKey id, bool saveChanges = false, CancellationToken cancellationToken = default)
     {
         var entity = await GetByIdAsync(id, cancellationToken: cancellationToken);
         if (entity != null)
-            await DeleteAsync(entity, saveChanges, isSoftDelete, cancellationToken);
+            await DeleteAsync(entity, saveChanges, cancellationToken);
     }
 
     /// <summary>
@@ -153,27 +142,11 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
     /// </summary>
     /// <param name="predicate">The predicate to filter entities for deletion</param>
     /// <param name="saveChanges">Whether to immediately save changes to the database</param>
-    /// <param name="isSoftDelete">Whether to perform a soft delete (if entities support it)</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    public async Task BulkDeleteAsync(Expression<Func<TEntity, bool>> predicate, bool saveChanges = false, bool isSoftDelete = true, CancellationToken cancellationToken = default)
+    public async Task BulkDeleteAsync(Expression<Func<TEntity, bool>> predicate, bool saveChanges = false, CancellationToken cancellationToken = default)
     {
-        var hasIsDeleted = typeof(TEntity).GetProperty("IsDeleted") != null;
-
-        if (hasIsDeleted && isSoftDelete)
-        {
-            var entities = await DbSet.Where(predicate).ToListAsync(cancellationToken);
-            foreach (var entity in entities)
-            {
-                var isDeletedProperty = typeof(TEntity).GetProperty("IsDeleted");
-                isDeletedProperty!.SetValue(entity, true);
-                Context.Entry(entity).State = EntityState.Modified;
-            }
-        }
-        else
-        {
-            var entities = await DbSet.Where(predicate).ToListAsync(cancellationToken);
-            DbSet.RemoveRange(entities);
-        }
+        var entities = await DbSet.Where(predicate).ToListAsync(cancellationToken);
+        DbSet.RemoveRange(entities);
 
         if (saveChanges)
             await SaveChangesAsync(cancellationToken);

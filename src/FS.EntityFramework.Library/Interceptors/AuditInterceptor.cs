@@ -35,73 +35,75 @@ public class AuditInterceptor : SaveChangesInterceptor
         return base.SavingChangesAsync(eventData, result, cancellationToken);
     }
 
+    /// <summary>
+    /// Updates audit properties on entities in the given DbContext based on their state.
+    /// </summary>
+    /// <param name="context">The DbContext to process.</param>
     private void UpdateAuditProperties(DbContext? context)
     {
         if (context == null) return;
 
-        var entries = context.ChangeTracker.Entries()
-            .Where(e => IsAuditableEntity(e.Entity) && 
-                       (e.State == EntityState.Added || e.State == EntityState.Modified || e.State == EntityState.Deleted))
-            .ToList();
-
         var currentUser = _getCurrentUser?.Invoke();
         var now = _getCurrentTime!.Invoke();
 
-        foreach (var entry in entries)
-        {
-            SetAuditProperties(entry, currentUser, now);
-        }
+        SetCreationAuditProperties(context, now, currentUser);
+        SetModificationAuditProperties(context, now, currentUser);
+        SetSoftDeleteAuditProperties(context, now, currentUser);
     }
 
-    private static bool IsAuditableEntity(object entity)
+    /// <summary>
+    /// Sets creation audit properties for newly added entities.
+    /// </summary>
+    /// <param name="context">The DbContext to process.</param>
+    /// <param name="now">The current date and time.</param>
+    /// <param name="currentUser">The current user identifier.</param>
+    private static void SetCreationAuditProperties(DbContext context, DateTime now, string? currentUser)
     {
-        // Check if entity implements BaseAuditableEntity with any key type
-        var entityType = entity.GetType();
-        while (entityType != null)
+        foreach (var entry in context.ChangeTracker.Entries<ICreationAuditableEntity>().Where(e => e.State == EntityState.Added))
         {
-            if (entityType.IsGenericType && 
-                entityType.GetGenericTypeDefinition() == typeof(BaseAuditableEntity<>))
-            {
-                return true;
-            }
-            entityType = entityType.BaseType;
+            SetProperty(entry.Entity, entry.Entity.GetType(), "CreatedAt", now);
+            SetProperty(entry.Entity, entry.Entity.GetType(), "CreatedBy", currentUser);
         }
-        return false;
     }
 
-    private static void SetAuditProperties(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry entry, string? currentUser, DateTime now)
+    /// <summary>
+    /// Sets modification audit properties for updated entities.
+    /// </summary>
+    /// <param name="context">The DbContext to process.</param>
+    /// <param name="now">The current date and time.</param>
+    /// <param name="currentUser">The current user identifier.</param>
+    private static void SetModificationAuditProperties(DbContext context, DateTime now, string? currentUser)
     {
-        var entity = entry.Entity;
-        var entityType = entity.GetType();
-
-        switch (entry.State)
+        foreach (var entry in context.ChangeTracker.Entries<IModificationAuditableEntity>().Where(e => e.State == EntityState.Modified))
         {
-            case EntityState.Added:
-                SetProperty(entity, entityType, "CreatedAt", now);
-                SetProperty(entity, entityType, "CreatedBy", currentUser);
-                break;
-
-            case EntityState.Modified:
-                if (entry.Property("IsDeleted").CurrentValue is true &&
-                    entry.Property("IsDeleted").OriginalValue is false)
-                {
-                    SetProperty(entity, entityType, "DeletedAt", now);
-                    SetProperty(entity, entityType, "DeletedBy", currentUser);
-                }
-                else
-                {
-                    SetProperty(entity, entityType, "UpdatedAt", now);
-                    SetProperty(entity, entityType, "UpdatedBy", currentUser);
-                }
-                break;
-            case EntityState.Detached:
-            case EntityState.Unchanged:
-            case EntityState.Deleted:
-            default:
-                break;
+            SetProperty(entry.Entity, entry.Entity.GetType(), "UpdatedAt", now);
+            SetProperty(entry.Entity, entry.Entity.GetType(), "UpdatedBy", currentUser);
         }
     }
 
+    /// <summary>
+    /// Sets soft delete audit properties for deleted entities.
+    /// </summary>
+    /// <param name="context">The DbContext to process.</param>
+    /// <param name="now">The current date and time.</param>
+    /// <param name="currentUser">The current user identifier.</param>
+    private static void SetSoftDeleteAuditProperties(DbContext context, DateTime now, string? currentUser)
+    {
+        foreach (var entry in context.ChangeTracker.Entries<ISoftDelete>().Where(e => e.State == EntityState.Deleted))
+        {
+            SetProperty(entry.Entity, entry.Entity.GetType(), "IsDeleted", true);
+            SetProperty(entry.Entity, entry.Entity.GetType(), "DeletedAt", now);
+            SetProperty(entry.Entity, entry.Entity.GetType(), "DeletedBy", currentUser);
+        }
+    }
+
+    /// <summary>
+    /// Sets audit properties on entity
+    /// </summary>
+    /// <param name="entity">The entity</param>
+    /// <param name="entityType">The entity type</param>
+    /// <param name="propertyName">The property name</param>
+    /// <param name="value">The value</param>
     private static void SetProperty(object entity, Type entityType, string propertyName, object? value)
     {
         var property = entityType.GetProperty(propertyName);
