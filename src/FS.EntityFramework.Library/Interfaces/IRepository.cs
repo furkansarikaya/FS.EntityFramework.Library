@@ -69,6 +69,22 @@ public interface IRepository<TEntity, in TKey>
     Task DeleteAsync(TKey id, bool saveChanges = false, CancellationToken cancellationToken = default);
     
     /// <summary>
+    /// Hard deletes an entity (permanently deletes it from the database)
+    /// </summary>
+    /// <param name="entity">The entity to delete</param>
+    /// <param name="saveChanges">Whether to immediately save changes to the database</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    Task HardDeleteAsync(TEntity entity, bool saveChanges = false, CancellationToken cancellationToken = default);
+    
+    /// <summary>
+    /// Hard deletes an entity by its primary key (permanently deletes it from the database)
+    /// </summary>
+    /// <param name="id">The primary key of the entity to delete</param>
+    /// <param name="saveChanges">Whether to immediately save changes to the database</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    Task HardDeleteAsync(TKey id, bool saveChanges = false, CancellationToken cancellationToken = default);
+    
+    /// <summary>
     /// Restores a soft deleted entity (only if entity implements ISoftDelete)
     /// </summary>
     /// <param name="entity">The entity to restore</param>

@@ -92,7 +92,7 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
     /// <param name="cancellationToken">Cancellation token</param>
     public virtual async Task DeleteAsync(TEntity entity, bool saveChanges = false, CancellationToken cancellationToken = default)
     {
-        DbSet.Remove(entity);
+        Context.Entry(entity).State = EntityState.Deleted;
 
         if (saveChanges)
             await SaveChangesAsync(cancellationToken);
@@ -109,6 +109,32 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
         var entity = await GetByIdAsync(id, cancellationToken: cancellationToken);
         if (entity != null)
             await DeleteAsync(entity, saveChanges, cancellationToken);
+    }
+
+    /// <summary>
+    /// Hard deletes an entity (permanently deletes it from the database)
+    /// </summary>
+    /// <param name="entity">The entity to delete</param>
+    /// <param name="saveChanges">Whether to immediately save changes to the database</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    public async Task HardDeleteAsync(TEntity entity, bool saveChanges = false, CancellationToken cancellationToken = default)
+    {
+        Context.Remove(entity);
+        if (saveChanges)
+            await SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Hard deletes an entity by its primary key (permanently deletes it from the database)
+    /// </summary>
+    /// <param name="id">The primary key of the entity to delete</param>
+    /// <param name="saveChanges">Whether to immediately save changes to the database</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    public async Task HardDeleteAsync(TKey id, bool saveChanges = false, CancellationToken cancellationToken = default)
+    {
+        var entity = await GetByIdAsync(id, cancellationToken: cancellationToken);
+        if (entity != null)
+            await HardDeleteAsync(entity, saveChanges, cancellationToken);
     }
 
     /// <summary>
@@ -177,8 +203,20 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
     /// <param name="cancellationToken">Cancellation token</param>
     public async Task BulkDeleteAsync(Expression<Func<TEntity, bool>> predicate, bool saveChanges = false, CancellationToken cancellationToken = default)
     {
-        var entities = await DbSet.Where(predicate).ToListAsync(cancellationToken);
-        DbSet.RemoveRange(entities);
+        var hasIsDeleted = typeof(TEntity).GetProperty("IsDeleted") != null;
+        if (hasIsDeleted)
+        {
+            var entities = await DbSet.Where(predicate).ToListAsync(cancellationToken);
+            foreach (var entity in entities)
+            {
+                Context.Entry(entity).State = EntityState.Deleted;
+            }
+        }
+        else
+        {
+            var entities = await DbSet.Where(predicate).ToListAsync(cancellationToken);
+            DbSet.RemoveRange(entities);
+        }
 
         if (saveChanges)
             await SaveChangesAsync(cancellationToken);
