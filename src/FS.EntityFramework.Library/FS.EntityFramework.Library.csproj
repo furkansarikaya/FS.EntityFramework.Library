@@ -7,7 +7,7 @@
 
         <!-- NuGet Package Metadata -->
         <PackageId>FS.EntityFramework.Library</PackageId>
-        <Version>9.0.6.3</Version>
+        <Version>9.0.6.5</Version>
         <Authors>Furkan SARIKAYA</Authors>
         <Company>Furkan SARIKAYA</Company>
         <Product>FS EntityFramework Library</Product>
@@ -19,7 +19,7 @@
         <RepositoryUrl>https://github.com/furkansarikaya/FS.EntityFramework.Library</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageReleaseNotes>
-            Version 9.0.6.2 - Added Fluent Configuration API
+            Version 9.0.6.5 - Added Fluent Configuration API
             - NEW: Fluent Configuration API for intuitive setup with method chaining
             - NEW: Flexible Domain Events support with custom dispatcher integration
             - NEW: Enhanced Audit configuration with multiple user provider options

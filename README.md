@@ -1130,7 +1130,7 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 ## Changelog
 
-### v9.0.6.2 - Added Fluent Configuration API
+### v9.0.6.5 - Added Fluent Configuration API
 - **NEW**: Fluent Configuration API for intuitive setup with method chaining
 - **NEW**: Flexible Domain Events support with custom dispatcher integration
 - **NEW**: Enhanced Audit configuration with multiple user provider options

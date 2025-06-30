@@ -91,6 +91,7 @@ public class AuditInterceptor : SaveChangesInterceptor
     {
         foreach (var entry in context.ChangeTracker.Entries<ISoftDelete>().Where(e => e.State == EntityState.Deleted))
         {
+            entry.State = EntityState.Modified;
             SetProperty(entry.Entity, entry.Entity.GetType(), "IsDeleted", true);
             SetProperty(entry.Entity, entry.Entity.GetType(), "DeletedAt", now);
             SetProperty(entry.Entity, entry.Entity.GetType(), "DeletedBy", currentUser);
