@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace FS.EntityFramework.Library.FluentConfiguration;
 
@@ -17,6 +18,10 @@ public static class AdvancedConfigurationExtensions
     {
         // Register soft delete configuration as a service so it can be applied in OnModelCreating
         builder.Services.AddSingleton<ISoftDeleteConfiguration, SoftDeleteConfiguration>();
+        
+        // Register a service that will be used to apply soft delete configuration automatically
+        builder.Services.AddScoped<ISoftDeleteSetup, SoftDeleteSetup>();
+        
         return builder;
     }
 
@@ -30,15 +35,16 @@ public static class AdvancedConfigurationExtensions
         this IFSEntityFrameworkBuilder builder,
         bool enableSensitiveDataLogging = false)
     {
-        builder.Services.Configure<DbContextOptionsBuilder>(options =>
+        // Configure logging for the specific DbContext type
+        builder.Services.Configure<DbContextLoggerOptions>(options =>
         {
-            options.EnableDetailedErrors();
-            if (enableSensitiveDataLogging)
-            {
-                options.EnableSensitiveDataLogging();
-            }
+            options.EnableDetailedErrors = true;
+            options.EnableSensitiveDataLogging = enableSensitiveDataLogging;
         });
 
+        // Add a configuration service that will apply these settings
+        builder.Services.AddScoped<IDbContextLoggingConfiguration, DbContextLoggingConfiguration>();
+        
         return builder;
     }
 }

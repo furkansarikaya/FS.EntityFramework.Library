@@ -25,6 +25,9 @@ public static class FluentDependencyInjection
             return new UnitOfWork(context, provider);
         });
 
+        // Register fluent configuration applier
+        services.AddScoped<IFluentConfigurationApplier, FluentConfigurationApplier>();
+
         return new FSEntityFrameworkBuilder(services, typeof(TContext));
     }
 
