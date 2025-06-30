@@ -1,4 +1,5 @@
 using FS.EntityFramework.Library.Common;
+using FS.EntityFramework.Library.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
@@ -89,12 +90,38 @@ public class AuditInterceptor : SaveChangesInterceptor
     /// <param name="currentUser">The current user identifier.</param>
     private static void SetSoftDeleteAuditProperties(DbContext context, DateTime now, string? currentUser)
     {
-        foreach (var entry in context.ChangeTracker.Entries<ISoftDelete>().Where(e => e.State == EntityState.Deleted))
+        var softDeleteEntries = context.ChangeTracker.Entries<ISoftDelete>()
+            .Where(e => e.State == EntityState.Deleted)
+            .ToList(); // ToList() ile lazy evaluation'ı önle
+
+        foreach (var entry in softDeleteEntries)
         {
-            entry.State = EntityState.Modified;
-            SetProperty(entry.Entity, entry.Entity.GetType(), "IsDeleted", true);
-            SetProperty(entry.Entity, entry.Entity.GetType(), "DeletedAt", now);
-            SetProperty(entry.Entity, entry.Entity.GetType(), "DeletedBy", currentUser);
+            if (context?.IsBypassSoftDeleteEnabled() == true)
+            {
+                context.DisableBypassSoftDelete();
+                return;
+            }
+            
+            entry.State = EntityState.Unchanged;
+
+            // Sadece gerekli alanları değiştir
+            var entity = entry.Entity;
+            entity.IsDeleted = true;
+            entity.DeletedAt = now;
+            entity.DeletedBy = currentUser;
+            
+            // Sadece bu alanların modified olduğunu belirt
+            entry.Property(e => e.IsDeleted).IsModified = true;
+            entry.Property(e => e.DeletedAt).IsModified = true;
+            entry.Property(e => e.DeletedBy).IsModified = true;
+            
+            // EF7+ support
+            foreach (var complex in entry.ComplexProperties)
+                complex.IsModified = false;
+
+            // Fallback: for EF6/EF7 if ComplexProperties is empty
+            foreach (var reference in entry.References)
+                reference.IsModified = false;
         }
     }
 

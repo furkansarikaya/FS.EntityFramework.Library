@@ -31,17 +31,7 @@ public static class SoftDeleteQueryFilterExtensions
 
     private static bool IsAuditableEntity(Type clrType)
     {
-        var currentType = clrType;
-        while (currentType != null)
-        {
-            if (currentType.IsGenericType && 
-                currentType.GetGenericTypeDefinition() == typeof(BaseAuditableEntity<>))
-            {
-                return true;
-            }
-            currentType = currentType.BaseType;
-        }
-        return false;
+        return typeof(ISoftDelete).IsAssignableFrom(clrType);
     }
 
     private static void ApplyFilterToEntity<TEntity>(ModelBuilder modelBuilder, Microsoft.EntityFrameworkCore.Metadata.IMutableEntityType entityType)

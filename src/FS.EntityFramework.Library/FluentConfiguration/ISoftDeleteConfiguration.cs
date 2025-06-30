@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+
 namespace FS.EntityFramework.Library.FluentConfiguration;
 
 /// <summary>
@@ -9,5 +11,5 @@ public interface ISoftDeleteConfiguration
     /// Applies soft delete configuration to the model builder
     /// </summary>
     /// <param name="modelBuilder">The model builder</param>
-    void Configure(Microsoft.EntityFrameworkCore.ModelBuilder modelBuilder);
+    void Configure(ModelBuilder modelBuilder);
 }

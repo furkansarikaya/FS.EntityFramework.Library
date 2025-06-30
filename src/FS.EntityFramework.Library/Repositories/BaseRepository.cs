@@ -119,6 +119,7 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
     /// <param name="cancellationToken">Cancellation token</param>
     public async Task HardDeleteAsync(TEntity entity, bool saveChanges = false, CancellationToken cancellationToken = default)
     {
+        context.EnableBypassSoftDelete();
         Context.Remove(entity);
         if (saveChanges)
             await SaveChangesAsync(cancellationToken);
@@ -227,7 +228,13 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
     /// </summary>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>The number of state entries written to the database</returns>
-    public virtual async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => await Context.SaveChangesAsync(cancellationToken);
+    public virtual async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        var result = await Context.SaveChangesAsync(cancellationToken);
+        if(Context.IsBypassSoftDeleteEnabled())
+            Context.DisableBypassSoftDelete();
+        return result;
+    }
 
     /// <summary>
     /// Gets entities with string-based include for related data
@@ -414,7 +421,6 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
 
         if (predicate != null)
             query = query.Where(predicate);
-
         return await query.CountAsync(cancellationToken);
     }
 
