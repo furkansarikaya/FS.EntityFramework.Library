@@ -7,7 +7,7 @@
 
         <!-- NuGet Package Metadata -->
         <PackageId>FS.EntityFramework.Library.GuidV7</PackageId>
-        <Version>9.0.6.7.1</Version>
+        <Version>9.0.6.8</Version>
         <Authors>Furkan SARIKAYA</Authors>
         <Company>Furkan SARIKAYA</Company>
         <Product>FS EntityFramework Library - GUID Version 7 Extension</Product>
