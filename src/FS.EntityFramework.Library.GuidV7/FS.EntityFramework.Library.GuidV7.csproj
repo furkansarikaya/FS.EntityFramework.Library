@@ -1,0 +1,90 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+
+        <!-- NuGet Package Metadata -->
+        <PackageId>FS.EntityFramework.Library.GuidV7</PackageId>
+        <Version>9.0.6.7</Version>
+        <Authors>Furkan SARIKAYA</Authors>
+        <Company>Furkan SARIKAYA</Company>
+        <Product>FS EntityFramework Library - GUID Version 7 Extension</Product>
+        <Description>GUID Version 7 (RFC 9562) ID generation extension for FS.EntityFramework.Library providing timestamp-based sequential GUIDs with zero external dependencies. Perfect for .NET 9+ applications requiring RFC-compliant, chronologically ordered unique identifiers.</Description>
+        <PackageTags>EntityFramework;GUID;Version7;RFC9562;ID;Generation;Sequential;NET9;ZeroDependency;Extension</PackageTags>
+        <PackageProjectUrl>https://github.com/furkansarikaya/FS.EntityFramework.Library</PackageProjectUrl>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+        <RepositoryUrl>https://github.com/furkansarikaya/FS.EntityFramework.Library</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageReleaseNotes>
+            GUID Version 7 Extension v9.0.6.7 - RFC 9562 Implementation
+
+            NEW FEATURES:
+            - 🆕 Automatic GUID Version 7 generation for BaseEntity&lt;Guid&gt; entities
+            - 🆕 RFC 9562 compliant implementation using .NET 9 native support
+            - 🆕 Fluent configuration: WithGuidV7() extension method
+            - 🆕 Custom timestamp provider support for GUID generation
+            - 🆕 Zero external dependencies - uses built-in .NET 9 Guid.CreateVersion7()
+
+            IMPROVEMENTS:
+            - ✅ Optimal database performance with timestamp-based ordering
+            - ✅ Universal GUID ecosystem compatibility
+            - ✅ Microsoft native implementation benefits
+            - ✅ Industry standard RFC compliance
+            - ✅ Perfect for microservice architectures
+
+            REQUIREMENTS:
+            - Requires .NET 9+ for native Guid.CreateVersion7() support
+
+            USAGE:
+            services.AddFSEntityFramework&lt;DbContext&gt;()
+            .WithGuidV7()  // Automatic GUID V7 generation
+            .Build();
+
+            public class User : BaseAuditableEntity&lt;Guid&gt; { }
+
+            Compatible with FS.EntityFramework.Library v9.0.6.7+
+        </PackageReleaseNotes>
+
+        <!-- Documentation -->
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).xml</DocumentationFile>
+        <NoWarn>$(NoWarn);CS1591</NoWarn>
+
+        <!-- Package README -->
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+
+        <!-- Package Icon -->
+        <PackageIconFile>icon.png</PackageIconFile>
+
+        <!-- Symbol Package -->
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    </PropertyGroup>
+
+    <!-- Development vs Release References -->
+    <!-- Development Mode: Use ProjectReference for rapid iteration -->
+    <ItemGroup Condition="'$(Configuration)' == 'Debug' OR '$(UseProjectReferences)' == 'true'">
+        <ProjectReference Include="..\FS.EntityFramework.Library\FS.EntityFramework.Library.csproj" />
+    </ItemGroup>
+
+    <!-- Release Mode: Use PackageReference for proper NuGet dependency -->
+    <ItemGroup Condition="'$(Configuration)' == 'Release' AND '$(UseProjectReferences)' != 'true'">
+        <PackageReference Include="FS.EntityFramework.Library" Version="9.0.6.7" />
+    </ItemGroup>
+
+    <!-- No external dependencies for GUID V7 - uses .NET 9 native support -->
+    
+    <!-- Include README in package -->
+    <ItemGroup>
+        <None Include="..\..\README.md" Pack="true" PackagePath="\"/>
+    </ItemGroup>
+
+    <!-- Package Icon Configuration -->
+    <ItemGroup>
+        <None Include="icon.png" Pack="true" PackagePath="" />
+    </ItemGroup>
+
+</Project>

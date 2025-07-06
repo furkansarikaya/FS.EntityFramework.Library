@@ -7,30 +7,47 @@
 
         <!-- NuGet Package Metadata -->
         <PackageId>FS.EntityFramework.Library</PackageId>
-        <Version>9.0.6.5</Version>
+        <Version>9.0.6.7</Version>
         <Authors>Furkan SARIKAYA</Authors>
         <Company>Furkan SARIKAYA</Company>
         <Product>FS EntityFramework Library</Product>
-        <Description>A comprehensive Entity Framework Core library providing Repository pattern, Unit of Work, Specification pattern, dynamic filtering, pagination support, Domain Events, and Fluent Configuration API for .NET applications.</Description>
-        <PackageTags>EntityFramework;Repository;UnitOfWork;Specification;Pagination;EF;Core;Audit;SoftDelete;DomainEvents;FluentAPI;Configuration</PackageTags>
+        <Description>A comprehensive Entity Framework Core library providing Repository pattern, Unit of Work, Specification pattern, dynamic filtering, pagination support, Domain Events, Fluent Configuration API, and modular ID generation strategies for .NET applications.</Description>
+        <PackageTags>EntityFramework;Repository;UnitOfWork;Specification;Pagination;EF;Core;Audit;SoftDelete;DomainEvents;FluentAPI;Configuration;ULID;GUID;IdGeneration;Modular</PackageTags>
         <PackageProjectUrl>https://github.com/furkansarikaya/FS.EntityFramework.Library</PackageProjectUrl>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
         <RepositoryUrl>https://github.com/furkansarikaya/FS.EntityFramework.Library</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageReleaseNotes>
-            Version 9.0.6.5 - Added Fluent Configuration API
-            - NEW: Fluent Configuration API for intuitive setup with method chaining
-            - NEW: Flexible Domain Events support with custom dispatcher integration
-            - NEW: Enhanced Audit configuration with multiple user provider options
-            - NEW: Advanced repository registration with assembly scanning
-            - NEW: Conditional configuration support for different environments
-            - NEW: Comprehensive validation and error handling
-            - IMPROVED: Better separation of concerns and cleaner API design
-            - IMPROVED: Framework-agnostic approach - integrate with any event handling library
-            - IMPROVED: More flexible and extensible configuration options
+            Version 9.0.6.7 - Enhanced Modular ID Generation Architecture
 
-            Breaking Changes: None - Fully backward compatible with existing configurations
+            NEW FEATURES:
+            - 🆕 Modular ID Generation System: Support for pluggable ID generation strategies
+            - 🆕 Base interfaces for extensible ID generators (IIdGenerator, IIdGeneratorFactory)
+            - 🆕 Automatic ID generation interceptor with runtime type resolution
+            - 🆕 Fluent configuration API for ID generation: WithIdGeneration()
+            - 🆕 Type-safe constraint validation for ID generators
+            - 🆕 Support for mixed ID strategies in single application
+
+            IMPROVEMENTS:
+            - ✅ Enhanced BaseEntity to support modular ID generation
+            - ✅ Improved interceptor architecture with conditional ID generation
+            - ✅ Better separation of concerns between core and extension packages
+            - ✅ Runtime type safety with compile-time constraint enforcement
+            - ✅ Optimized factory pattern for ID generator resolution
+
+            ARCHITECTURE:
+            - 📦 Prepared for extension packages: FS.EntityFramework.Library.Ulid, FS.EntityFramework.Library.GuidV7
+            - 🔧 Conditional reference support for development and release builds
+            - 🎯 Zero breaking changes - fully backward compatible
+
+            DEVELOPER EXPERIENCE:
+            - 🚀 Easier extension development with clear interfaces
+            - 🔍 Better debugging and diagnostics support
+            - 📚 Enhanced documentation and examples
+
+            This version sets the foundation for modular ID generation extensions while maintaining
+            full backward compatibility with existing code.
         </PackageReleaseNotes>
 
         <!-- Documentation -->
@@ -40,20 +57,30 @@
 
         <!-- Package README -->
         <PackageReadmeFile>README.md</PackageReadmeFile>
+        
+        <!-- Package Icon -->
+        <PackageIconFile>icon.png</PackageIconFile>
 
         <!-- Symbol Package -->
         <IncludeSymbols>true</IncludeSymbols>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     </PropertyGroup>
 
+    <!-- Package Dependencies -->
     <ItemGroup>
         <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.6"/>
         <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.0"/>
         <PackageReference Include="Microsoft.AspNetCore.Http" Version="2.3.0"/>
     </ItemGroup>
-
+    
+    <!-- Include README in package -->
     <ItemGroup>
         <None Include="..\..\README.md" Pack="true" PackagePath="\"/>
+    </ItemGroup>
+
+    <!-- Package Icon Configuration -->
+    <ItemGroup>
+        <None Include="icon.png" Pack="true" PackagePath="" />
     </ItemGroup>
 
 </Project>

@@ -4,6 +4,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{3033875F-16E
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FS.EntityFramework.Library", "src\FS.EntityFramework.Library\FS.EntityFramework.Library.csproj", "{5749E013-7C93-410A-BCEB-DEF29B28B356}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FS.EntityFramework.Library.GuidV7", "src\FS.EntityFramework.Library.GuidV7\FS.EntityFramework.Library.GuidV7.csproj", "{E720129D-85B8-4869-9BAD-C1F38402A175}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FS.EntityFramework.Library.UlidGenerator", "src\FS.EntityFramework.Library.UlidGenerator\FS.EntityFramework.Library.UlidGenerator.csproj", "{B75DB5FE-3685-45F3-83EE-D8060D0AB754}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -11,11 +15,21 @@ Global
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{5749E013-7C93-410A-BCEB-DEF29B28B356} = {3033875F-16E7-4D48-ABD4-C632A3415F31}
+		{E720129D-85B8-4869-9BAD-C1F38402A175} = {3033875F-16E7-4D48-ABD4-C632A3415F31}
+		{B75DB5FE-3685-45F3-83EE-D8060D0AB754} = {3033875F-16E7-4D48-ABD4-C632A3415F31}
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{5749E013-7C93-410A-BCEB-DEF29B28B356}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{5749E013-7C93-410A-BCEB-DEF29B28B356}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5749E013-7C93-410A-BCEB-DEF29B28B356}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5749E013-7C93-410A-BCEB-DEF29B28B356}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E720129D-85B8-4869-9BAD-C1F38402A175}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E720129D-85B8-4869-9BAD-C1F38402A175}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E720129D-85B8-4869-9BAD-C1F38402A175}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E720129D-85B8-4869-9BAD-C1F38402A175}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B75DB5FE-3685-45F3-83EE-D8060D0AB754}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B75DB5FE-3685-45F3-83EE-D8060D0AB754}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B75DB5FE-3685-45F3-83EE-D8060D0AB754}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B75DB5FE-3685-45F3-83EE-D8060D0AB754}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

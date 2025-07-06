@@ -1,0 +1,90 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+
+        <!-- NuGet Package Metadata -->
+        <PackageId>FS.EntityFramework.Library.Ulid</PackageId>
+        <Version>9.0.6.7</Version>
+        <Authors>Furkan SARIKAYA</Authors>
+        <Company>Furkan SARIKAYA</Company>
+        <Product>FS EntityFramework Library - ULID Extension</Product>
+        <Description>ULID ID generation extension for FS.EntityFramework.Library providing chronologically sortable, human-readable unique identifiers perfect for microservice architectures. Includes automatic generation, Entity Framework optimizations, and fluent configuration.</Description>
+        <PackageTags>EntityFramework;ULID;ID;Generation;Microservices;Sequential;Chronological;HumanReadable;Extension</PackageTags>
+        <PackageProjectUrl>https://github.com/furkansarikaya/FS.EntityFramework.Library</PackageProjectUrl>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+        <RepositoryUrl>https://github.com/furkansarikaya/FS.EntityFramework.Library</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageReleaseNotes>
+            ULID Extension v9.0.6.7 - Enhanced Modular Architecture
+
+            NEW FEATURES:
+            - 🆕 Automatic ULID generation for BaseEntity&lt;Ulid&gt; entities
+            - 🆕 Fluent configuration: WithUlid() extension method
+            - 🆕 Custom timestamp provider support for ULID generation
+            - 🆕 Entity Framework optimizations with proper converters
+            - 🆕 Human-readable, chronologically sortable ULIDs
+
+            IMPROVEMENTS:
+            - ✅ Zero-configuration setup for most scenarios
+            - ✅ Optimal database performance with sequential ULIDs
+            - ✅ Perfect microservice architecture support
+            - ✅ Built-in Entity Framework value converters
+            - ✅ Automatic database index optimization
+
+            USAGE:
+            services.AddFSEntityFramework&lt;DbContext&gt;()
+            .WithUlid()  // Automatic ULID generation
+            .Build();
+
+            public class Product : BaseAuditableEntity&lt;Ulid&gt; { }
+
+            Compatible with FS.EntityFramework.Library v9.0.6.7+
+        </PackageReleaseNotes>
+
+        <!-- Documentation -->
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).xml</DocumentationFile>
+        <NoWarn>$(NoWarn);CS1591</NoWarn>
+
+        <!-- Package README -->
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+
+        <!-- Package Icon -->
+        <PackageIconFile>icon.png</PackageIconFile>
+
+        <!-- Symbol Package -->
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    </PropertyGroup>
+
+    <!-- Development vs Release References -->
+    <!-- Development Mode: Use ProjectReference for rapid iteration -->
+    <ItemGroup Condition="'$(Configuration)' == 'Debug' OR '$(UseProjectReferences)' == 'true'">
+        <ProjectReference Include="..\FS.EntityFramework.Library\FS.EntityFramework.Library.csproj" />
+    </ItemGroup>
+
+    <!-- Release Mode: Use PackageReference for proper NuGet dependency -->
+    <ItemGroup Condition="'$(Configuration)' == 'Release' AND '$(UseProjectReferences)' != 'true'">
+        <PackageReference Include="FS.EntityFramework.Library" Version="9.0.6.7" />
+    </ItemGroup>
+
+    <!-- ULID Library Dependency -->
+    <ItemGroup>
+        <PackageReference Include="Ulid" Version="1.3.4" />
+    </ItemGroup>
+
+    <!-- Include README in package -->
+    <ItemGroup>
+        <None Include="..\..\README.md" Pack="true" PackagePath="\"/>
+    </ItemGroup>
+
+    <!-- Package Icon Configuration -->
+    <ItemGroup>
+        <None Include="icon.png" Pack="true" PackagePath="" />
+    </ItemGroup>
+
+</Project>

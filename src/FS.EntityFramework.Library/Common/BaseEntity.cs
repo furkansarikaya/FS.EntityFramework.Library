@@ -7,6 +7,15 @@ namespace FS.EntityFramework.Library.Common;
 public abstract class BaseEntity<TKey> : IEntity<TKey>, IHasDomainEvents where TKey : IEquatable<TKey>
 {
     private readonly List<IDomainEvent> _domainEvents = [];
+    
+    /// <summary>
+    /// Initializes a new instance with default ID value.
+    /// ID generation is delegated to registered IIdGenerator implementations.
+    /// </summary>
+    protected BaseEntity()
+    {
+        Id = default!;
+    }
 
     /// <summary>
     /// Gets or sets the primary key of the entity
