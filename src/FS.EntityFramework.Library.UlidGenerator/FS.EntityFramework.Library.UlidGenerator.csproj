@@ -6,8 +6,8 @@
         <Nullable>enable</Nullable>
 
         <!-- NuGet Package Metadata -->
-        <PackageId>FS.EntityFramework.Library.Ulid</PackageId>
-        <Version>9.0.6.7</Version>
+        <PackageId>FS.EntityFramework.Library.UlidGenerator</PackageId>
+        <Version>9.0.6.7.1</Version>
         <Authors>Furkan SARIKAYA</Authors>
         <Company>Furkan SARIKAYA</Company>
         <Product>FS EntityFramework Library - ULID Extension</Product>
