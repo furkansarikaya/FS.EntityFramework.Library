@@ -5,6 +5,7 @@ namespace FS.EntityFramework.Library.Extensions;
 
 /// <summary>
 /// Extension methods for configuring Domain-Driven Design services
+/// Enhanced with robust inheritance detection
 /// </summary>
 public static class DomainServicesExtensions
 {
@@ -69,7 +70,8 @@ public static class DomainServicesExtensions
     }
 
     /// <summary>
-    /// Automatically registers domain repositories for all aggregate roots in the specified assembly
+    /// ENHANCED: Automatically registers domain repositories for all aggregate roots in the specified assembly
+    /// Now with robust inheritance detection that handles complex inheritance hierarchies
     /// </summary>
     /// <param name="services">The service collection</param>
     /// <param name="assembly">The assembly to scan for aggregate roots</param>
@@ -82,12 +84,12 @@ public static class DomainServicesExtensions
     {
         var aggregateTypes = assembly.GetTypes()
             .Where(type => type.IsClass && !type.IsAbstract)
-            .Where(type => IsAggregateRoot(type))
+            .Where(type => IsAggregateRootEnhanced(type))
             .ToList();
 
         foreach (var aggregateType in aggregateTypes)
         {
-            var keyType = GetAggregateKeyType(aggregateType);
+            var keyType = GetAggregateKeyTypeEnhanced(aggregateType);
             if (keyType == null) continue;
 
             var repositoryInterfaceType = typeof(Domain.IDomainRepository<,>).MakeGenericType(aggregateType, keyType);
@@ -126,41 +128,116 @@ public static class DomainServicesExtensions
     }
 
     /// <summary>
-    /// Determines if a type is an aggregate root
+    /// ENHANCED: Determines if a type is an aggregate root with robust inheritance detection
+    /// This method now properly handles complex inheritance hierarchies including:
+    /// - Direct inheritance: MyAggregate : AggregateRoot<Guid>
+    /// - Intermediate inheritance: MyAggregate : BaseAggregate : AggregateRoot<Guid>
+    /// - Multiple levels: SpecificAggregate : IntermediateAggregate : BaseAggregate : AggregateRoot<Guid>
     /// </summary>
     /// <param name="type">The type to check</param>
-    /// <returns>True if the type is an aggregate root; otherwise false</returns>
-    private static bool IsAggregateRoot(Type type)
+    /// <returns>True if the type is or inherits from an aggregate root; otherwise false</returns>
+    private static bool IsAggregateRootEnhanced(Type type)
     {
+        // Start with the type itself and walk up the inheritance chain
         var current = type;
+        
         while (current != null)
         {
+            // Check if current type directly inherits from AggregateRoot<T>
             if (current.IsGenericType && current.GetGenericTypeDefinition() == typeof(AggregateRoot<>))
             {
                 return true;
             }
-
+            
+            // ENHANCEMENT: Also check if current type inherits from the non-generic AggregateRoot
+            // This handles cases where entities inherit from AggregateRoot (which inherits from AggregateRoot<Guid>)
+            if (current == typeof(AggregateRoot))
+            {
+                return true;
+            }
+            
+            // CRITICAL FIX: Check if any base class is a constructed generic type based on AggregateRoot<>
+            // This handles inheritance chains like: SpecificProduct : BaseProduct : AggregateRoot<Guid>
+            if (InheritsFromAggregateRoot(current))
+            {
+                return true;
+            }
+            
+            // Move to the base type
             current = current.BaseType;
         }
 
         return false;
     }
+    
+    /// <summary>
+    /// Helper method to check if a type inherits from any AggregateRoot variant
+    /// This method performs deep inheritance analysis
+    /// </summary>
+    /// <param name="type">The type to check</param>
+    /// <returns>True if the type inherits from AggregateRoot in any form</returns>
+    private static bool InheritsFromAggregateRoot(Type type)
+    {
+        // Check all interfaces and base types
+        var allTypes = new List<Type>();
+        
+        // Add base types
+        var current = type.BaseType;
+        while (current != null)
+        {
+            allTypes.Add(current);
+            current = current.BaseType;
+        }
+        
+        // Check each type in the hierarchy
+        foreach (var checkType in allTypes)
+        {
+            if (checkType.IsGenericType && checkType.GetGenericTypeDefinition() == typeof(AggregateRoot<>))
+            {
+                return true;
+            }
+            
+            if (checkType == typeof(AggregateRoot))
+            {
+                return true;
+            }
+        }
+        
+        return false;
+    }
 
     /// <summary>
-    /// Gets the key type of an aggregate root
+    /// ENHANCED: Gets the key type of an aggregate root with improved detection
+    /// Now handles complex inheritance scenarios properly
     /// </summary>
     /// <param name="aggregateType">The aggregate type</param>
     /// <returns>The key type if found; otherwise null</returns>
-    private static Type? GetAggregateKeyType(Type aggregateType)
+    private static Type? GetAggregateKeyTypeEnhanced(Type aggregateType)
     {
         var current = aggregateType;
+        
         while (current != null)
         {
+            // Check if current type is directly AggregateRoot<TKey>
             if (current.IsGenericType && current.GetGenericTypeDefinition() == typeof(AggregateRoot<>))
             {
                 return current.GetGenericArguments()[0];
             }
-
+            
+            // ENHANCEMENT: Check if current type inherits from non-generic AggregateRoot
+            // Non-generic AggregateRoot inherits from AggregateRoot<Guid>, so key type is Guid
+            if (current == typeof(AggregateRoot))
+            {
+                return typeof(Guid);
+            }
+            
+            // ENHANCEMENT: Check base types for generic AggregateRoot
+            var baseType = current.BaseType;
+            if (baseType is { IsGenericType: true } && baseType.GetGenericTypeDefinition() == typeof(AggregateRoot<>))
+            {
+                return baseType.GetGenericArguments()[0];
+            }
+            
             current = current.BaseType;
         }
 

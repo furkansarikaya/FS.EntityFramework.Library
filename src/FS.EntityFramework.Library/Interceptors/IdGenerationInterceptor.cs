@@ -71,9 +71,12 @@ public class IdGenerationInterceptor : SaveChangesInterceptor
 
             var currentValue = idProperty.GetValue(entity);
 
+            // FIXED: Improved default value detection for nullable types
             if (!IsDefaultValue(currentValue, keyType)) continue;
+            
             var generator = _idGeneratorFactory.GetGeneratorForType(keyType);
             if (generator == null) continue;
+            
             var newId = generator.Generate();
                 
             if (newId != null)
@@ -104,7 +107,7 @@ public class IdGenerationInterceptor : SaveChangesInterceptor
     }
 
     /// <summary>
-    /// Checks if a value is the default value for its type.
+    /// FIXED: Enhanced default value detection that properly handles nullable types
     /// This determines whether we should generate a new ID.
     /// </summary>
     /// <param name="value">The current value</param>
@@ -112,11 +115,41 @@ public class IdGenerationInterceptor : SaveChangesInterceptor
     /// <returns>True if the value is the default for its type</returns>
     private static bool IsDefaultValue(object? value, Type type)
     {
-        if (value == null) return true;
+        // Handle null values first
+        if (value == null) 
+        {
+            // For reference types and nullable value types, null is indeed default
+            return !type.IsValueType || Nullable.GetUnderlyingType(type) != null;
+        }
         
-        // For value types, compare with the default value
-        // For reference types, null is the default
-        var defaultValue = type.IsValueType ? Activator.CreateInstance(type) : null;
+        // CRITICAL FIX: Handle nullable value types properly
+        // For nullable types like int?, Guid?, the underlying type is what matters
+        var underlyingType = Nullable.GetUnderlyingType(type);
+        if (underlyingType != null)
+        {
+            // This is a nullable type (int?, Guid?, etc.)
+            // If we have a non-null value, check if it's the default of the underlying type
+            var underlyingDefault = GetDefaultValue(underlyingType);
+            return Equals(value, underlyingDefault);
+        }
+        
+        // For regular value types and reference types
+        var defaultValue = GetDefaultValue(type);
         return Equals(value, defaultValue);
+    }
+    
+    /// <summary>
+    /// Helper method to get the actual default value for a type
+    /// This handles both value types and reference types correctly
+    /// </summary>
+    /// <param name="type">The type to get default value for</param>
+    /// <returns>The default value for the type</returns>
+    private static object? GetDefaultValue(Type type)
+    {
+        // For reference types, default is null
+        return !type.IsValueType ? null :
+            // For value types, use Activator.CreateInstance to get default
+            // This handles: int=0, Guid=Guid.Empty, DateTime=DateTime.MinValue, etc.
+            Activator.CreateInstance(type);
     }
 }

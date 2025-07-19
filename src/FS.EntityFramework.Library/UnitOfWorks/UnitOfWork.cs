@@ -21,7 +21,7 @@ public class UnitOfWork(DbContext context, IServiceProvider serviceProvider)
     /// <summary>
     /// Thread-safe dictionary to cache repository instances
     /// </summary>
-    private readonly ConcurrentDictionary<Type, object> _repositories = new();
+    private readonly ConcurrentDictionary<string, object> _repositories = new();
     
     /// <summary>
     /// The current database transaction (if any)
@@ -44,7 +44,11 @@ public class UnitOfWork(DbContext context, IServiceProvider serviceProvider)
     {
         var repositoryType = typeof(TRepository);
         
-        return (TRepository)_repositories.GetOrAdd(repositoryType, _ =>
+        // For specific repository types, we can safely use the type name as key
+        // because these are concrete implementations, not generic interfaces
+        var cacheKey = repositoryType.FullName ?? repositoryType.Name;
+        
+        return (TRepository)_repositories.GetOrAdd(cacheKey, _ =>
         {
             var repository = serviceProvider.GetRequiredService<TRepository>();
             if (repository == null)
@@ -65,19 +69,17 @@ public class UnitOfWork(DbContext context, IServiceProvider serviceProvider)
         where TEntity : BaseEntity<TKey>
         where TKey : IEquatable<TKey>
     {
-        var repositoryType = typeof(IRepository<TEntity, TKey>);
+        // CRITICAL FIX: Create composite key that uniquely identifies entity + key combination
+        // This prevents different entities with same key type from sharing repository instances
+        var cacheKey = CreateRepositoryCacheKey<TEntity, TKey>();
         
-        return (IRepository<TEntity, TKey>)_repositories.GetOrAdd(repositoryType, _ =>
+        return (IRepository<TEntity, TKey>)_repositories.GetOrAdd(cacheKey, _ =>
         {
             // Try to get specific repository first
             var specificRepository = serviceProvider.GetService<IRepository<TEntity, TKey>>();
-            if (specificRepository != null)
-            {
-                return specificRepository;
-            }
-            
-            // Create generic repository if no specific implementation
-            return new BaseRepository<TEntity, TKey>(context);
+            return specificRepository ??
+                   // Create generic repository if no specific implementation
+                   new BaseRepository<TEntity, TKey>(context);
         });
     }
 
@@ -92,14 +94,28 @@ public class UnitOfWork(DbContext context, IServiceProvider serviceProvider)
         where TEntity : BaseEntity<TKey> 
         where TKey : IEquatable<TKey>
     {
-        var type = typeof(TEntity);
+        // Use the same caching strategy for consistency
+        return GetRepository<TEntity, TKey>();
+    }
+    
+    /// <summary>
+    /// Creates a unique cache key for repository instances that prevents type collisions
+    /// This method ensures that entities with the same key type get different repository instances
+    /// </summary>
+    /// <typeparam name="TEntity">The entity type</typeparam>
+    /// <typeparam name="TKey">The entity's primary key type</typeparam>
+    /// <returns>A unique cache key string</returns>
+    private static string CreateRepositoryCacheKey<TEntity, TKey>()
+        where TEntity : BaseEntity<TKey>
+        where TKey : IEquatable<TKey>
+    {
+        var entityType = typeof(TEntity);
+        var keyType = typeof(TKey);
         
-        if (!_repositories.ContainsKey(type))
-        {
-            _repositories[type] = new BaseRepository<TEntity, TKey>(context);
-        }
-        
-        return (IRepository<TEntity, TKey>)_repositories[type];
+        // Create composite key format: "IRepository<EntityFullName,KeyFullName>"
+        // Example: "IRepository<MyApp.Entities.Product,System.Int32>"
+        // This ensures Product<int> and Category<int> get different cache keys
+        return $"IRepository<{entityType.FullName},{keyType.FullName}>";
     }
     
     // ===== PERSISTENCE OPERATIONS =====

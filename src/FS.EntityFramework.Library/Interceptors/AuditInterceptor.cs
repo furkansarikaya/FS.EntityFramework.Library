@@ -94,14 +94,14 @@ public class AuditInterceptor : SaveChangesInterceptor
             .Where(e => e.State == EntityState.Deleted)
             .ToList(); // ToList() ile lazy evaluation'ı önle
 
+        if (context?.IsBypassSoftDeleteEnabled() == true)
+        {
+            context.DisableBypassSoftDelete();
+            return;
+        }
+        
         foreach (var entry in softDeleteEntries)
         {
-            if (context?.IsBypassSoftDeleteEnabled() == true)
-            {
-                context.DisableBypassSoftDelete();
-                return;
-            }
-            
             entry.State = EntityState.Unchanged;
 
             // Sadece gerekli alanları değiştir

@@ -4,16 +4,19 @@ using FS.EntityFramework.Library.Events;
 using FS.EntityFramework.Library.Extensions;
 using FS.EntityFramework.Library.Interceptors;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace FS.EntityFramework.Library.FluentConfiguration;
 
 /// <summary>
-/// Internal implementation of the domain events configuration builder
+/// Enhanced implementation of the domain events configuration builder with better user guidance
+/// Now provides clear feedback about configuration choices and prevents silent fallbacks
 /// </summary>
 internal class DomainEventsConfigurationBuilder : IDomainEventsConfigurationBuilder
 {
     private bool _dispatcherConfigured = false;
-
+    private bool _explicitDispatcherChoice = false; // Track if user made explicit choice
+    
     /// <summary>
     /// Initializes a new instance of the DomainEventsConfigurationBuilder class
     /// </summary>
@@ -29,35 +32,45 @@ internal class DomainEventsConfigurationBuilder : IDomainEventsConfigurationBuil
     public IFSEntityFrameworkBuilder Builder { get; }
 
     /// <summary>
-    /// Uses the default domain event dispatcher
+    /// Uses the default domain event dispatcher with clear user notification
     /// </summary>
     /// <returns>The domain events configuration builder for further configuration</returns>
     public IDomainEventsConfigurationBuilder UsingDefaultDispatcher()
     {
-        if (_dispatcherConfigured)
-            throw new InvalidOperationException("Domain event dispatcher has already been configured.");
+        ThrowIfDispatcherAlreadyConfigured();
 
         Builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         Builder.Services.AddScoped<DomainEventInterceptor>();
+        
         _dispatcherConfigured = true;
+        _explicitDispatcherChoice = true; // User explicitly chose default
+        
+        // Add configuration metadata for logging and debugging
+        Builder.Services.AddSingleton<IDomainEventsConfigurationInfo>(
+            new DomainEventsConfigurationInfo("DefaultDispatcher", true));
         
         return this;
     }
 
     /// <summary>
-    /// Uses a custom domain event dispatcher
+    /// Uses a custom domain event dispatcher with validation
     /// </summary>
     /// <typeparam name="TDispatcher">The custom dispatcher implementation</typeparam>
     /// <returns>The domain events configuration builder for further configuration</returns>
     public IDomainEventsConfigurationBuilder UsingCustomDispatcher<TDispatcher>()
         where TDispatcher : class, IDomainEventDispatcher
     {
-        if (_dispatcherConfigured)
-            throw new InvalidOperationException("Domain event dispatcher has already been configured.");
+        ThrowIfDispatcherAlreadyConfigured();
 
         Builder.Services.AddScoped<IDomainEventDispatcher, TDispatcher>();
         Builder.Services.AddScoped<DomainEventInterceptor>();
+        
         _dispatcherConfigured = true;
+        _explicitDispatcherChoice = true; // User explicitly chose custom
+        
+        // Add configuration metadata
+        Builder.Services.AddSingleton<IDomainEventsConfigurationInfo>(
+            new DomainEventsConfigurationInfo(typeof(TDispatcher).Name, true));
         
         return this;
     }
@@ -68,7 +81,7 @@ internal class DomainEventsConfigurationBuilder : IDomainEventsConfigurationBuil
     /// <returns>The domain events configuration builder for further configuration</returns>
     public IDomainEventsConfigurationBuilder WithAutoHandlerDiscovery()
     {
-        EnsureDispatcherConfigured();
+        EnsureDispatcherConfiguredWithWarning();
         Builder.Services.AddDomainEventHandlersFromCallingAssembly();
         return this;
     }
@@ -80,7 +93,7 @@ internal class DomainEventsConfigurationBuilder : IDomainEventsConfigurationBuil
     /// <returns>The domain events configuration builder for further configuration</returns>
     public IDomainEventsConfigurationBuilder WithAutoHandlerDiscovery(Assembly assembly)
     {
-        EnsureDispatcherConfigured();
+        EnsureDispatcherConfiguredWithWarning();
         Builder.Services.AddDomainEventHandlersFromAssembly(assembly);
         return this;
     }
@@ -92,7 +105,7 @@ internal class DomainEventsConfigurationBuilder : IDomainEventsConfigurationBuil
     /// <returns>The domain events configuration builder for further configuration</returns>
     public IDomainEventsConfigurationBuilder WithAutoHandlerDiscovery(params Assembly[] assemblies)
     {
-        EnsureDispatcherConfigured();
+        EnsureDispatcherConfiguredWithWarning();
         Builder.Services.AddDomainEventHandlersFromAssemblies(assemblies);
         return this;
     }
@@ -104,7 +117,7 @@ internal class DomainEventsConfigurationBuilder : IDomainEventsConfigurationBuil
     /// <returns>The domain events configuration builder for further configuration</returns>
     public IDomainEventsConfigurationBuilder WithAutoHandlerDiscoveryFromTypes(params Type[] types)
     {
-        EnsureDispatcherConfigured();
+        EnsureDispatcherConfiguredWithWarning();
         Builder.Services.AddDomainEventHandlersFromAssemblyContaining(types);
         return this;
     }
@@ -116,7 +129,7 @@ internal class DomainEventsConfigurationBuilder : IDomainEventsConfigurationBuil
     /// <returns>The domain events configuration builder for further configuration</returns>
     public IDomainEventsConfigurationBuilder WithAttributeBasedDiscovery(Assembly assembly)
     {
-        EnsureDispatcherConfigured();
+        EnsureDispatcherConfiguredWithWarning();
         Builder.Services.AddAttributedDomainEventHandlers(assembly);
         return this;
     }
@@ -133,7 +146,7 @@ internal class DomainEventsConfigurationBuilder : IDomainEventsConfigurationBuil
         Func<Type, bool>? filter = null,
         ServiceLifetime serviceLifetime = ServiceLifetime.Scoped)
     {
-        EnsureDispatcherConfigured();
+        EnsureDispatcherConfiguredWithWarning();
         Builder.Services.AddDomainEventHandlers(assembly, filter, serviceLifetime);
         return this;
     }
@@ -148,29 +161,87 @@ internal class DomainEventsConfigurationBuilder : IDomainEventsConfigurationBuil
         where TEvent : class, FS.EntityFramework.Library.Common.IDomainEvent
         where THandler : class, IDomainEventHandler<TEvent>
     {
-        EnsureDispatcherConfigured();
+        EnsureDispatcherConfiguredWithWarning();
         Builder.Services.AddDomainEventHandler<TEvent, THandler>();
         return this;
     }
 
     /// <summary>
-    /// Completes the domain events configuration and returns to the main builder
+    /// ENHANCED: Completes the domain events configuration with proper validation
+    /// Now throws meaningful exceptions if configuration is incomplete
     /// </summary>
     /// <returns>The parent builder for method chaining</returns>
     public IFSEntityFrameworkBuilder Complete()
     {
-        EnsureDispatcherConfigured();
+        // CRITICAL ENHANCEMENT: Validate configuration before completing
+        if (!_dispatcherConfigured)
+        {
+            throw new InvalidOperationException(
+                "Domain events configuration is incomplete. " +
+                "You must choose a dispatcher by calling either UsingDefaultDispatcher() or UsingCustomDispatcher<T>(). " +
+                "Example: .WithDomainEvents().UsingDefaultDispatcher().Complete()");
+        }
+
+        // Provide helpful information about the configuration
+        var serviceProvider = Builder.Services.BuildServiceProvider();
+        var logger = serviceProvider.CreateScope().ServiceProvider.GetService<ILogger<DomainEventsConfigurationBuilder>>();
+
+        if (logger == null || !_explicitDispatcherChoice) return Builder;
+        var configInfo = serviceProvider.GetService<IDomainEventsConfigurationInfo>();
+        logger.LogInformation("Domain events configured with dispatcher: {DispatcherType}", 
+            configInfo?.DispatcherType ?? "Unknown");
+
         return Builder;
     }
 
     /// <summary>
-    /// Ensures that a domain event dispatcher has been configured
+    /// ENHANCED: Ensures dispatcher is configured with clear user guidance
+    /// No more silent fallbacks - users must make explicit choices
     /// </summary>
-    private void EnsureDispatcherConfigured()
+    private void EnsureDispatcherConfiguredWithWarning()
     {
         if (!_dispatcherConfigured)
         {
-            UsingDefaultDispatcher();
+            // Instead of silently using default, throw a helpful exception
+            throw new InvalidOperationException(
+                "Domain event dispatcher has not been configured. " +
+                "Please call UsingDefaultDispatcher() or UsingCustomDispatcher<T>() first. " +
+                "Example: .WithDomainEvents().UsingDefaultDispatcher().WithAutoHandlerDiscovery()");
         }
     }
+    
+    /// <summary>
+    /// Helper method to check for dispatcher conflicts
+    /// </summary>
+    private void ThrowIfDispatcherAlreadyConfigured()
+    {
+        if (_dispatcherConfigured)
+        {
+            throw new InvalidOperationException(
+                "Domain event dispatcher has already been configured. " +
+                "You can only configure one dispatcher per domain events setup. " +
+                "If you need to change the dispatcher, create a new configuration.");
+        }
+    }
+}
+
+/// <summary>
+/// Configuration information for domain events setup
+/// Helps with debugging and provides transparency about configuration choices
+/// </summary>
+public interface IDomainEventsConfigurationInfo
+{
+    string DispatcherType { get; }
+    bool IsExplicitChoice { get; }
+    DateTime ConfiguredAt { get; }
+}
+
+/// <summary>
+/// Implementation of domain events configuration information
+/// </summary>
+internal class DomainEventsConfigurationInfo(string dispatcherType, bool isExplicitChoice) : IDomainEventsConfigurationInfo
+{
+    public string DispatcherType { get; } = dispatcherType;
+    public bool IsExplicitChoice { get; } = isExplicitChoice;
+    public DateTime ConfiguredAt { get; } = DateTime.UtcNow;
 }

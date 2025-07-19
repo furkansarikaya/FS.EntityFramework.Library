@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
 using FS.EntityFramework.Library.Models;
@@ -5,7 +6,8 @@ using FS.EntityFramework.Library.Models;
 namespace FS.EntityFramework.Library.Extensions;
 
 /// <summary>
-/// Dinamik filtre ifadeleri oluşturmak için yardımcı sınıf
+/// Enhanced filter expression builder with culture-safe parsing
+/// Handles international number and date formats properly
 /// </summary>
 public static class FilterExpressionBuilder
 {
@@ -22,7 +24,7 @@ public static class FilterExpressionBuilder
     
         // Başlangıç olarak "true" ifadesini kullan
         Expression body = Expression.Constant(true);
-        bool hasFilter = false;
+        var hasFilter = false;
     
         // SearchTerm kontrolü
         if (!string.IsNullOrEmpty(filter.SearchTerm))
@@ -108,8 +110,8 @@ public static class FilterExpressionBuilder
         // Özellik ifadesi
         var propertyExpression = Expression.Property(parameter, property);
         
-        // Değeri uygun tipe dönüştür
-        object? convertedValue = ConvertValue(filterItem.Value, property.PropertyType);
+        // FIXED: Culture-safe value conversion
+        var convertedValue = ConvertValueSafely(filterItem.Value, property.PropertyType);
         var valueExpression = Expression.Constant(convertedValue, property.PropertyType);
         
         // Operatör tipine göre ifade oluştur
@@ -122,29 +124,20 @@ public static class FilterExpressionBuilder
                 return Expression.NotEqual(propertyExpression, valueExpression);
                 
             case "contains":
-                if (property.PropertyType == typeof(string))
-                {
-                    var containsMethod = typeof(string).GetMethod("Contains", new[] { typeof(string) });
-                    return Expression.Call(propertyExpression, containsMethod!, valueExpression);
-                }
-                return Expression.Constant(true);
-                
+                if (property.PropertyType != typeof(string)) return Expression.Constant(true);
+                var containsMethod = typeof(string).GetMethod("Contains", [typeof(string)]);
+                return Expression.Call(propertyExpression, containsMethod!, valueExpression);
+
             case "startswith":
-                if (property.PropertyType == typeof(string))
-                {
-                    var startsWithMethod = typeof(string).GetMethod("StartsWith", new[] { typeof(string) });
-                    return Expression.Call(propertyExpression, startsWithMethod!, valueExpression);
-                }
-                return Expression.Constant(true);
-                
+                if (property.PropertyType != typeof(string)) return Expression.Constant(true);
+                var startsWithMethod = typeof(string).GetMethod("StartsWith", [typeof(string)]);
+                return Expression.Call(propertyExpression, startsWithMethod!, valueExpression);
+
             case "endswith":
-                if (property.PropertyType == typeof(string))
-                {
-                    var endsWithMethod = typeof(string).GetMethod("EndsWith", new[] { typeof(string) });
-                    return Expression.Call(propertyExpression, endsWithMethod!, valueExpression);
-                }
-                return Expression.Constant(true);
-                
+                if (property.PropertyType != typeof(string)) return Expression.Constant(true);
+                var endsWithMethod = typeof(string).GetMethod("EndsWith", [typeof(string)]);
+                return Expression.Call(propertyExpression, endsWithMethod!, valueExpression);
+
             case "greaterthan":
                 return Expression.GreaterThan(propertyExpression, valueExpression);
                 
@@ -163,41 +156,79 @@ public static class FilterExpressionBuilder
     }
     
     /// <summary>
-    /// Converts a string value to the target type for use in filter expressions
+    /// FIXED: Culture-safe value conversion that handles international formats
+    /// Converts a string value to the target type using invariant culture for consistency
     /// </summary>
     /// <param name="value">The string value to convert</param>
     /// <param name="targetType">The target type to convert to</param>
     /// <returns>The converted value or default value if conversion fails</returns>
-    private static object? ConvertValue(string value, Type targetType)
+    private static object? ConvertValueSafely(string value, Type targetType)
     {
         if (string.IsNullOrEmpty(value))
             return GetDefaultValue(targetType);
             
-        // Nullable tiplerle başa çık
         var underlyingType = Nullable.GetUnderlyingType(targetType) ?? targetType;
         
         try
         {
+            // CRITICAL FIX: Use InvariantCulture for consistent parsing across different locales
+            // This prevents issues where "1,5" is parsed differently in TR vs EN cultures
+            
             if (underlyingType == typeof(bool))
-                return bool.Parse(value);
+            {
+                // Handle various boolean representations
+                var lowerValue = value.ToLowerInvariant();
+                return lowerValue is "true" or "1" or "yes" or "on" or "enabled";
+            }
                 
             if (underlyingType == typeof(int))
-                return int.Parse(value);
+                return int.Parse(value, CultureInfo.InvariantCulture);
+                
+            if (underlyingType == typeof(long))
+                return long.Parse(value, CultureInfo.InvariantCulture);
                 
             if (underlyingType == typeof(decimal))
-                return decimal.Parse(value);
+                return decimal.Parse(value, CultureInfo.InvariantCulture);
+                
+            if (underlyingType == typeof(double))
+                return double.Parse(value, CultureInfo.InvariantCulture);
+                
+            if (underlyingType == typeof(float))
+                return float.Parse(value, CultureInfo.InvariantCulture);
                 
             if (underlyingType == typeof(DateTime))
-                return DateTime.Parse(value);
+            {
+                // Try multiple DateTime formats for better compatibility
+                if (DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dateTimeResult))
+                    return dateTimeResult;
+
+                // Fallback: try ISO 8601 format
+                return DateTime.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var isoResult) ? isoResult : DateTime.MinValue;
+            }
+                
+            if (underlyingType == typeof(DateOnly))
+            {
+                return DateOnly.TryParse(value, CultureInfo.InvariantCulture, out var dateOnlyResult) ? dateOnlyResult : DateOnly.MinValue;
+            }
                 
             if (underlyingType.IsEnum)
-                return Enum.Parse(underlyingType, value);
+            {
+                // Try case-insensitive enum parsing
+                return Enum.TryParse(underlyingType, value, true, out var enumResult) ? enumResult : Enum.GetValues(underlyingType).GetValue(0); // Return first enum value as default
+            }
                 
-            // String ve diğer tipler için
-            return Convert.ChangeType(value, underlyingType);
+            if (underlyingType == typeof(Guid))
+            {
+                return Guid.TryParse(value, out var guidResult) ? guidResult : Guid.Empty;
+            }
+                
+            // String ve diğer tipler için - use InvariantCulture
+            return Convert.ChangeType(value, underlyingType, CultureInfo.InvariantCulture);
         }
-        catch
+        catch (Exception)
         {
+            // If all parsing attempts fail, return default value
+            // Log the error in production scenarios for debugging
             return GetDefaultValue(targetType);
         }
     }
