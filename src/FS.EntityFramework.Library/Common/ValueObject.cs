@@ -64,4 +64,26 @@ public abstract class ValueObject
             .Select(x => x != null ? x.GetHashCode() : 0)
             .Aggregate((x, y) => x ^ y);
     }
+    
+    /// <summary>
+    /// Determines whether two value objects are equal
+    /// </summary>
+    /// <param name="left">The left value object</param>
+    /// <param name="right">The right value object</param>
+    /// <returns>True if the value objects are equal; otherwise, false</returns>
+    public static bool operator ==(ValueObject? left, ValueObject? right)
+    {
+        return left?.Equals(right) ?? ReferenceEquals(right, null);
+    }
+
+    /// <summary>
+    /// Determines whether two value objects are not equal
+    /// </summary>
+    /// <param name="left">The left value object</param>
+    /// <param name="right">The right value object</param>
+    /// <returns>True if the value objects are not equal; otherwise, false</returns>
+    public static bool operator !=(ValueObject? left, ValueObject? right)
+    {
+        return !(left == right);
+    }
 }

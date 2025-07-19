@@ -76,15 +76,12 @@
     <ItemGroup>
         <PackageReference Include="Ulid" Version="1.3.4" />
     </ItemGroup>
-
-    <!-- Include README in package -->
+    
     <ItemGroup>
-        <None Include="..\..\README.md" Pack="true" PackagePath="\"/>
-    </ItemGroup>
-
-    <!-- Package Icon Configuration -->
-    <ItemGroup>
-        <None Include="icon.png" Pack="true" PackagePath="" />
+        <!-- Content Files -->
+        <Content Include="..\..\README.md" Pack="true" PackagePath="\"/>
+        <Content Include="..\..\LICENSE" Pack="true" PackagePath="\"/>
+        <Content Include="icon.png" Pack="true" PackagePath="\"/>
     </ItemGroup>
 
 </Project>

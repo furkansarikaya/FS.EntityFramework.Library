@@ -7,7 +7,7 @@
 
         <!-- NuGet Package Metadata -->
         <PackageId>FS.EntityFramework.Library</PackageId>
-        <Version>9.0.6.9</Version>
+        <Version>9.0.7</Version>
         <Authors>Furkan SARIKAYA</Authors>
         <Company>Furkan SARIKAYA</Company>
         <Product>FS EntityFramework Library</Product>
@@ -66,21 +66,18 @@
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     </PropertyGroup>
 
-    <!-- Package Dependencies -->
     <ItemGroup>
-        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.6"/>
-        <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.0"/>
-        <PackageReference Include="Microsoft.AspNetCore.Http" Version="2.3.0"/>
-    </ItemGroup>
-    
-    <!-- Include README in package -->
-    <ItemGroup>
-        <None Include="..\..\README.md" Pack="true" PackagePath="\"/>
+        <!-- Content Files -->
+        <Content Include="..\..\README.md" Pack="true" PackagePath="\"/>
+        <Content Include="..\..\LICENSE" Pack="true" PackagePath="\"/>
+        <Content Include="icon.png" Pack="true" PackagePath="\"/>
     </ItemGroup>
 
-    <!-- Package Icon Configuration -->
+    <!-- Package Dependencies -->
     <ItemGroup>
-        <None Include="icon.png" Pack="true" PackagePath="" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.7" />
+        <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.0"/>
+        <PackageReference Include="Microsoft.AspNetCore.Http" Version="2.3.0"/>
     </ItemGroup>
 
 </Project>

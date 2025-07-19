@@ -52,4 +52,51 @@ public abstract class BaseEntity<TKey> : IEntity<TKey>, IHasDomainEvents where T
     {
         _domainEvents.Clear();
     }
+    
+    /// <summary>
+    /// Determines whether the specified object is equal to the current entity
+    /// </summary>
+    /// <param name="obj">The object to compare with the current entity</param>
+    /// <returns>True if the specified object is equal to the current entity; otherwise, false</returns>
+    public override bool Equals(object? obj)
+    {
+        if (obj is not BaseEntity<TKey> other)
+            return false;
+
+        if (ReferenceEquals(this, other))
+            return true;
+
+        return GetType() == other.GetType() && Id.Equals(other.Id);
+    }
+
+    /// <summary>
+    /// Gets the hash code for the current entity
+    /// </summary>
+    /// <returns>A hash code for the current entity</returns>
+    public override int GetHashCode()
+    {
+        return (GetType().Name + Id).GetHashCode();
+    }
+
+    /// <summary>
+    /// Determines whether two entities are equal
+    /// </summary>
+    /// <param name="left">The left entity</param>
+    /// <param name="right">The right entity</param>
+    /// <returns>True if the entities are equal; otherwise, false</returns>
+    public static bool operator ==(BaseEntity<TKey>? left, BaseEntity<TKey>? right)
+    {
+        return left?.Equals(right) ?? ReferenceEquals(right, null);
+    }
+
+    /// <summary>
+    /// Determines whether two entities are not equal
+    /// </summary>
+    /// <param name="left">The left entity</param>
+    /// <param name="right">The right entity</param>
+    /// <returns>True if the entities are not equal; otherwise, false</returns>
+    public static bool operator !=(BaseEntity<TKey>? left, BaseEntity<TKey>? right)
+    {
+        return !(left == right);
+    }
 }
