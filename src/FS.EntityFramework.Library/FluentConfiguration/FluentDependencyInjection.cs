@@ -140,6 +140,11 @@ public static class FluentDependencyInjection
 
             // CRITICAL: Create enhanced options with interceptors
             var optionsBuilder = new DbContextOptionsBuilder(options);
+            
+            // Apply logging configuration if registered
+            var loggingConfig = serviceProvider.GetService<IDbContextLoggingConfiguration>();
+            loggingConfig?.Configure(optionsBuilder);
+            
             var interceptorsApplied = TryApplyInterceptors(optionsBuilder, serviceProvider);
             
             if (!interceptorsApplied)
