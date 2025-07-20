@@ -11,41 +11,61 @@
         <Authors>Furkan SARIKAYA</Authors>
         <Company>Furkan SARIKAYA</Company>
         <Product>FS EntityFramework Library - GUID Version 7 Extension</Product>
-        <Description>GUID Version 7 (RFC 9562) ID generation extension for FS.EntityFramework.Library providing timestamp-based sequential GUIDs with zero external dependencies. Perfect for .NET 9+ applications requiring RFC-compliant, chronologically ordered unique identifiers.</Description>
-        <PackageTags>EntityFramework;GUID;Version7;RFC9562;ID;Generation;Sequential;NET9;ZeroDependency;Extension</PackageTags>
+        <Description>GUID Version 7 (RFC 9562) ID generation extension for FS.EntityFramework.Library with comprehensive Domain-Driven Design (DDD) support. Provides timestamp-based sequential GUIDs with zero external dependencies, perfect for enterprise .NET 9+ applications requiring RFC-compliant, chronologically ordered unique identifiers for Aggregate Roots and Domain Entities.</Description>
+        <PackageTags>EntityFramework;GUID;Version7;RFC9562;ID;Generation;Sequential;NET9;ZeroDependency;Extension;DDD;DomainDrivenDesign;AggregateRoot;DomainEntities;Enterprise;ProductionReady;Microservices;EventDriven</PackageTags>
         <PackageProjectUrl>https://github.com/furkansarikaya/FS.EntityFramework.Library</PackageProjectUrl>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
         <RepositoryUrl>https://github.com/furkansarikaya/FS.EntityFramework.Library</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageReleaseNotes>
-            GUID Version 7 Extension v9.0.6.7 - RFC 9562 Implementation
+            GUID Version 7 Extension v9.0.7 - Enterprise DDD Implementation
 
-            NEW FEATURES:
-            - 🆕 Automatic GUID Version 7 generation for BaseEntity&lt;Guid&gt; entities
+            🆕 DOMAIN-DRIVEN DESIGN ENHANCEMENTS:
+            - 🏛️ Full DDD compatibility with AggregateRoot&lt;Guid&gt; entities
+            - 🎯 Seamless integration with Domain Events and Value Objects
+            - 📋 Business Rules and Domain Specifications support
+            - 🔄 Domain Unit of Work automatic ID generation
+            - 🏗️ Enterprise-grade aggregate identifier strategy
+
+            🚀 GUID V7 FEATURES:
             - 🆕 RFC 9562 compliant implementation using .NET 9 native support
+            - 🆕 Automatic GUID Version 7 generation for BaseEntity&lt;Guid&gt; entities
             - 🆕 Fluent configuration: WithGuidV7() extension method
-            - 🆕 Custom timestamp provider support for GUID generation
+            - 🆕 Custom timestamp provider support for deterministic generation
             - 🆕 Zero external dependencies - uses built-in .NET 9 Guid.CreateVersion7()
 
-            IMPROVEMENTS:
-            - ✅ Optimal database performance with timestamp-based ordering
-            - ✅ Universal GUID ecosystem compatibility
-            - ✅ Microsoft native implementation benefits
-            - ✅ Industry standard RFC compliance
-            - ✅ Perfect for microservice architectures
+            🏭 ENTERPRISE PRODUCTION FEATURES:
+            - ✅ Optimal database performance with timestamp-based sequential ordering
+            - ✅ Universal GUID ecosystem compatibility across microservices
+            - ✅ Perfect for event-driven architectures and domain event ordering
+            - ✅ Microsoft native implementation reliability and performance
+            - ✅ Industry standard RFC compliance for enterprise environments
+
+            💡 DDD INTEGRATION EXAMPLES:
+            ```csharp
+            // Automatic GUID V7 for Aggregate Roots
+            public class ProductAggregate : AggregateRoot&lt;Guid&gt; { }
+
+            // Fluent configuration with DDD
+            services.AddFSEntityFramework&lt;DbContext&gt;()
+            .WithGuidV7()
+            .WithDomainDrivenDesign()
+            .WithAutoRepositoryDiscovery()
+            .Complete()
+            .Build();
+            ```
+
+            🎯 PERFECT FOR:
+            - Enterprise Domain-Rich Applications
+            - Event-Driven Microservice Architectures
+            - Multi-tenant SaaS Platforms
+            - Financial and Healthcare Systems
+            - High-throughput Transaction Systems
 
             REQUIREMENTS:
-            - Requires .NET 9+ for native Guid.CreateVersion7() support
-
-            USAGE:
-            services.AddFSEntityFramework&lt;DbContext&gt;()
-            .WithGuidV7()  // Automatic GUID V7 generation
-            .Build();
-
-            public class User : BaseAuditableEntity&lt;Guid&gt; { }
-
-            Compatible with FS.EntityFramework.Library v9.0.6.7+
+            - .NET 9+ for native Guid.CreateVersion7() support
+            - Compatible with FS.EntityFramework.Library v9.0.7+
         </PackageReleaseNotes>
 
         <!-- Documentation -->
@@ -76,7 +96,7 @@
     </ItemGroup>
 
     <!-- No external dependencies for GUID V7 - uses .NET 9 native support -->
-    
+
     <ItemGroup>
         <!-- Content Files -->
         <Content Include="..\..\README.md" Pack="true" PackagePath="\"/>

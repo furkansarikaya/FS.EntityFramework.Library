@@ -11,38 +11,72 @@
         <Authors>Furkan SARIKAYA</Authors>
         <Company>Furkan SARIKAYA</Company>
         <Product>FS EntityFramework Library - ULID Extension</Product>
-        <Description>ULID ID generation extension for FS.EntityFramework.Library providing chronologically sortable, human-readable unique identifiers perfect for microservice architectures. Includes automatic generation, Entity Framework optimizations, and fluent configuration.</Description>
-        <PackageTags>EntityFramework;ULID;ID;Generation;Microservices;Sequential;Chronological;HumanReadable;Extension</PackageTags>
+        <Description>ULID ID generation extension for FS.EntityFramework.Library with full Domain-Driven Design (DDD) support. Provides chronologically sortable, human-readable unique identifiers perfect for enterprise microservice architectures, Aggregate Roots, and Domain Entities. Includes automatic generation, Entity Framework optimizations, and comprehensive DDD integration.</Description>
+        <PackageTags>EntityFramework;ULID;ID;Generation;Microservices;Sequential;Chronological;HumanReadable;Extension;DDD;DomainDrivenDesign;AggregateRoot;DomainEntities;Enterprise;ProductionReady;EventDriven;Distributed</PackageTags>
         <PackageProjectUrl>https://github.com/furkansarikaya/FS.EntityFramework.Library</PackageProjectUrl>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
         <RepositoryUrl>https://github.com/furkansarikaya/FS.EntityFramework.Library</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageReleaseNotes>
-            ULID Extension v9.0.6.7 - Enhanced Modular Architecture
+            ULID Extension v9.0.7 - Enterprise DDD Implementation
 
-            NEW FEATURES:
+            🆕 DOMAIN-DRIVEN DESIGN ENHANCEMENTS:
+            - 🏛️ Native DDD support with AggregateRoot&lt;Ulid&gt; entities
+            - 🎯 Seamless Domain Events integration with chronological ordering
+            - 📋 Business Rules and Domain Specifications compatibility
+            - 🔄 Domain Unit of Work automatic ULID generation
+            - 🏗️ Enterprise aggregate identifier strategy for distributed systems
+
+            🚀 ULID FEATURES:
             - 🆕 Automatic ULID generation for BaseEntity&lt;Ulid&gt; entities
             - 🆕 Fluent configuration: WithUlid() extension method
-            - 🆕 Custom timestamp provider support for ULID generation
-            - 🆕 Entity Framework optimizations with proper converters
-            - 🆕 Human-readable, chronologically sortable ULIDs
+            - 🆕 Custom timestamp provider support for deterministic generation
+            - 🆕 Entity Framework optimizations with proper value converters
+            - 🆕 Human-readable, chronologically sortable identifiers
 
-            IMPROVEMENTS:
-            - ✅ Zero-configuration setup for most scenarios
+            🏭 ENTERPRISE PRODUCTION FEATURES:
+            - ✅ Zero-configuration setup for most DDD scenarios
             - ✅ Optimal database performance with sequential ULIDs
-            - ✅ Perfect microservice architecture support
-            - ✅ Built-in Entity Framework value converters
-            - ✅ Automatic database index optimization
+            - ✅ Perfect microservice architecture support with global uniqueness
+            - ✅ Built-in Entity Framework value converters and indexing
+            - ✅ Cross-service event ordering and correlation capabilities
 
-            USAGE:
+            💡 DDD INTEGRATION EXAMPLES:
+            ```csharp
+            // ULID Aggregate Roots for distributed systems
+            public class OrderAggregate : AggregateRoot&lt;Ulid&gt; { }
+            public class CustomerAggregate : AggregateRoot&lt;Ulid&gt; { }
+
+            // Fluent configuration with DDD
             services.AddFSEntityFramework&lt;DbContext&gt;()
-            .WithUlid()  // Automatic ULID generation
+            .WithUlid()
+            .WithDomainDrivenDesign()
+            .WithAutoRepositoryDiscovery()
+            .WithDomainValidation()
+            .Complete()
+            .WithDomainEvents()
+            .UsingDefaultDispatcher()
+            .Complete()
             .Build();
+            ```
 
-            public class Product : BaseAuditableEntity&lt;Ulid&gt; { }
+            🎯 PERFECT FOR:
+            - Distributed Microservice Architectures
+            - Event-Driven Domain Systems
+            - Multi-tenant SaaS Applications
+            - Financial Transaction Systems
+            - IoT and Real-time Data Processing
+            - Cross-service Domain Event Correlation
 
-            Compatible with FS.EntityFramework.Library v9.0.6.7+
+            ⚡ ULID ADVANTAGES:
+            - Lexicographically sortable by creation time
+            - Collision-resistant across distributed systems
+            - Human-readable and debugger-friendly
+            - 26-character string representation
+            - Monotonic ordering within millisecond precision
+
+            Compatible with FS.EntityFramework.Library v9.0.7+
         </PackageReleaseNotes>
 
         <!-- Documentation -->
@@ -76,7 +110,7 @@
     <ItemGroup>
         <PackageReference Include="Ulid" Version="1.3.4" />
     </ItemGroup>
-    
+
     <ItemGroup>
         <!-- Content Files -->
         <Content Include="..\..\README.md" Pack="true" PackagePath="\"/>
