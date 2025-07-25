@@ -14,9 +14,10 @@ public abstract class FSDbContext : DbContext
 
     protected FSDbContext(DbContextOptions options) : base(options)
     {
+        _serviceProvider = null;
     }
 
-    protected FSDbContext(DbContextOptions options, IServiceProvider serviceProvider) : base(options)
+    protected FSDbContext(DbContextOptions options, IServiceProvider? serviceProvider) : base(options)
     {
         _serviceProvider = serviceProvider;
     }

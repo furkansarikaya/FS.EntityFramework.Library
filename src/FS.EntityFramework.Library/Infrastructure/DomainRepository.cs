@@ -1,4 +1,5 @@
 using FS.EntityFramework.Library.Common;
+using FS.EntityFramework.Library.UnitOfWorks;
 
 namespace FS.EntityFramework.Library.Infrastructure;
 
@@ -11,20 +12,24 @@ namespace FS.EntityFramework.Library.Infrastructure;
 public class DomainRepository<TAggregate, TKey> : Domain.IDomainRepository<TAggregate, TKey>
     where TAggregate : AggregateRoot<TKey>
     where TKey : IEquatable<TKey>
-{
+{ 
+    private readonly IUnitOfWork _unitOfWork;
     private readonly Interfaces.IRepository<TAggregate, TKey> _efRepository;
     private readonly Common.IDomainEvent? _domainEventPublisher;
 
     /// <summary>
     /// Initializes a new instance of the DomainRepository class
     /// </summary>
-    /// <param name="efRepository">The underlying EF repository</param>
+    /// <param name="unitOfWork">The unit of work</param>
     /// <param name="domainEventPublisher">Optional domain event publisher</param>
     public DomainRepository(
-        Interfaces.IRepository<TAggregate, TKey> efRepository,
+        IUnitOfWork unitOfWork,
         Common.IDomainEvent? domainEventPublisher = null)
     {
-        _efRepository = efRepository;
+        _unitOfWork = unitOfWork;
+        
+        //Lazy initialization
+        _efRepository = _unitOfWork.GetRepository<TAggregate, TKey>();
         _domainEventPublisher = domainEventPublisher;
     }
 
