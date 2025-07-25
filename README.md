@@ -9,79 +9,67 @@ A comprehensive, production-ready Entity Framework Core library providing **Repo
 
 ## 🌟 Why Choose FS.EntityFramework.Library?
 
-```mermaid
-graph TB
-    A[🎯 FS.EntityFramework.Library] --> B[🏗️ Repository Pattern]
-    A --> C[🔄 Unit of Work]
-    A --> D[📋 Specification Pattern]
-    A --> E[🔍 Dynamic Filtering]
-    A --> F[📄 Pagination]
-    A --> G[🎭 Domain Events]
-    A --> H[⚙️ Fluent Configuration]
-    A --> I[🔑 Modular ID Generation]
-    A --> J[📊 Audit Tracking]
-    A --> K[🗑️ Soft Delete & Restore]
-    A --> L[🏛️ Domain-Driven Design]
-    A --> M[🏭 Aggregate Roots]
-    A --> N[📐 Value Objects]
-    A --> O[⚖️ Business Rules]
-```
+This library transforms Entity Framework Core into a powerful, enterprise-ready data access layer that follows best practices and design patterns. Whether you're building a simple application or a complex domain-rich system, this library provides the tools you need to create maintainable, testable, and scalable data access code.
 
 ## 📋 Table of Contents
 
 - [🚀 Quick Start](#-quick-start)
 - [💾 Installation](#-installation)
-- [⚙️ Configuration](#️-configuration)
-  - [🆕 Fluent Configuration API (Recommended)](#-fluent-configuration-api-recommended)
-  - [🔧 Classic Configuration](#-classic-configuration)
-- [🏗️ Core Concepts](#️-core-concepts)
-  - [📦 Base Entities](#-base-entities)
-  - [🏛️ Repository Pattern](#️-repository-pattern)
-  - [🔄 Unit of Work Pattern](#-unit-of-work-pattern)
-  - [📋 Specification Pattern](#-specification-pattern)
-- [🏛️ Domain-Driven Design (DDD)](#️-domain-driven-design-ddd)
-  - [🏭 Aggregate Roots](#-aggregate-roots)
-  - [📐 Value Objects](#-value-objects)
-  - [⚖️ Business Rules & Domain Guard](#️-business-rules--domain-guard)
-  - [🎯 Domain Specifications](#-domain-specifications)
-  - [🏗️ Domain Repositories](#️-domain-repositories)
-  - [🔄 Domain Unit of Work](#-domain-unit-of-work)
-- [🎭 Domain Events](#-domain-events)
-- [📊 Audit Tracking](#-audit-tracking)
-- [🗑️ Soft Delete & Restore](#️-soft-delete--restore)
-- [🔍 Dynamic Filtering](#-dynamic-filtering)
-- [📄 Pagination](#-pagination)
-- [🔑 ID Generation](#-id-generation)
-- [📚 Advanced Usage](#-advanced-usage)
+- [🏗️ Step-by-Step Implementation Guide](#️-step-by-step-implementation-guide)
+- [🏛️ Domain-Driven Design Features](#️-domain-driven-design-features)
+- [📊 Advanced Features](#-advanced-features)
 - [🎯 Best Practices](#-best-practices)
 - [🔧 Troubleshooting](#-troubleshooting)
-- [📖 API Reference](#-api-reference)
 - [🤝 Contributing](#-contributing)
 
 ## 🚀 Quick Start
 
-### 1️⃣ Basic Setup (30 seconds)
+Get started with FS.EntityFramework.Library in just 3 steps:
+
+### Step 1: Install the Package
+
+```bash
+dotnet add package FS.EntityFramework.Library
+```
+
+### Step 2: Configure Your DbContext
 
 ```csharp
-// 1. Install NuGet package
-dotnet add package FS.EntityFramework.Library
+public class ApplicationDbContext : DbContext
+{
+    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
+    
+    public DbSet<Product> Products { get; set; }
+    public DbSet<Category> Categories { get; set; }
+}
+```
 
-// 2. Configure your DbContext
-services.AddDbContext<YourDbContext>(options =>
+### Step 3: Configure Services
+
+```csharp
+// In Program.cs or Startup.cs
+services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
 
-// 3. Add FS.EntityFramework (One line setup!)
-services.AddFSEntityFramework<YourDbContext>()
+// Add FS.EntityFramework services
+services.AddFSEntityFramework<ApplicationDbContext>()
     .Build();
+```
 
-// 4. Create your entities
+### Step 4: Create Your First Entity
+
+```csharp
 public class Product : BaseAuditableEntity<int>
 {
     public string Name { get; set; } = string.Empty;
     public decimal Price { get; set; }
+    public string Description { get; set; } = string.Empty;
 }
+```
 
-// 5. Use in your services
+### Step 5: Use in Your Services
+
+```csharp
 public class ProductService
 {
     private readonly IUnitOfWork _unitOfWork;
@@ -102,26 +90,6 @@ public class ProductService
         return product;
     }
 }
-```
-
-### 2️⃣ Full-Featured Setup (Production Ready with DDD)
-
-```csharp
-services.AddFSEntityFramework<YourDbContext>()
-    .WithAudit()                          // 📊 Automatic audit tracking
-        .UsingHttpContext()               // 👤 User tracking via HTTP context
-    .WithDomainEvents()                   // 🎭 Domain events support
-        .UsingDefaultDispatcher()         // 📡 Default event dispatcher
-        .WithAutoHandlerDiscovery()       // 🔍 Auto-discover event handlers
-    .Complete()                           // ✅ Complete domain events setup
-    .WithSoftDelete()                     // 🗑️ Soft delete functionality
-    .WithDomainDrivenDesign()             // 🏛️ DDD support
-        .WithAutoRepositoryDiscovery()    // 🏗️ Auto-discover domain repositories
-        .WithDomainValidation()           // ⚖️ Domain validation services
-    .Complete()                           // ✅ Complete DDD setup
-    .WithGuidV7()                         // 🔑 GUID V7 ID generation
-    .ValidateConfiguration()              // ✅ Validate setup
-    .Build();
 ```
 
 ## 💾 Installation
@@ -149,177 +117,57 @@ dotnet add package FS.EntityFramework.Library.UlidGenerator
 - **Entity Framework Core 9.0.7** or later
 - **Microsoft.AspNetCore.Http.Abstractions 2.3.0** or later (for HttpContext support)
 
-## ⚙️ Configuration
+## 🏗️ Step-by-Step Implementation Guide
 
-### 🆕 Fluent Configuration API (Recommended)
+Let's build a complete example from scratch, implementing all the major features of the library.
 
-The Fluent Configuration API provides an intuitive, chainable way to configure the library with better readability and validation.
+### Step 1: Set Up Your Project Structure
 
-```mermaid
-graph LR
-    A[AddFSEntityFramework] --> B[WithAudit]
-    A --> C[WithDomainEvents]
-    A --> D[WithSoftDelete]
-    A --> E[WithIdGeneration]
-    A --> F[WithDomainDrivenDesign]
-    B --> G[UsingHttpContext]
-    B --> H[UsingUserProvider]
-    B --> I[UsingUserContext]
-    C --> J[UsingDefaultDispatcher]
-    C --> K[UsingCustomDispatcher]
-    C --> L[WithAutoHandlerDiscovery]
-    F --> M[WithAutoRepositoryDiscovery]
-    F --> N[WithDomainValidation]
-    J --> O[Complete]
-    K --> O
-    L --> O
-    M --> O
-    N --> O
-    O --> P[Build]
-    D --> P
-    E --> P
-    G --> P
-    H --> P
-    I --> P
+First, create a new project and organize it following clean architecture principles:
+
+```
+YourProject/
+├── Models/           # Entity models
+├── Services/         # Business logic
+├── Repositories/     # Custom repositories (if needed)
+└── Configuration/    # Database configuration
 ```
 
-#### Basic Configuration Options
+### Step 2: Install Required Packages
 
-```csharp
-// 🔧 Minimal setup
-services.AddFSEntityFramework<YourDbContext>()
-    .Build();
-
-// 📊 With audit tracking
-services.AddFSEntityFramework<YourDbContext>()
-    .WithAudit()
-        .UsingHttpContext()
-    .Build();
-
-// 🎭 With domain events
-services.AddFSEntityFramework<YourDbContext>()
-    .WithDomainEvents()
-        .UsingDefaultDispatcher()
-        .WithAutoHandlerDiscovery()
-    .Complete()
-    .Build();
-
-// 🗑️ With soft delete
-services.AddFSEntityFramework<YourDbContext>()
-    .WithSoftDelete()
-    .Build();
-
-// 🏛️ With Domain-Driven Design
-services.AddFSEntityFramework<YourDbContext>()
-    .WithDomainDrivenDesign()
-        .WithAutoRepositoryDiscovery()
-        .WithDomainValidation()
-    .Complete()
-    .Build();
+```bash
+dotnet new webapi -n YourProject
+cd YourProject
+dotnet add package FS.EntityFramework.Library
+dotnet add package Microsoft.EntityFrameworkCore.SqlServer
 ```
 
-#### Advanced DDD Configuration
+### Step 3: Create Base Entities
+
+Understanding the entity hierarchy is crucial. The library provides several base entity classes:
 
 ```csharp
-services.AddFSEntityFramework<YourDbContext>()
-    // 📊 Audit Configuration
-    .WithAudit()
-        .UsingUserProvider(provider => 
-        {
-            var userService = provider.GetService<ICurrentUserService>();
-            return userService?.GetCurrentUserId();
-        })
-    
-    // 🎭 Domain Events Configuration
-    .WithDomainEvents()
-        .UsingDefaultDispatcher()
-        .WithAutoHandlerDiscovery(typeof(ProductCreatedEvent).Assembly)
-        .WithAttributeBasedDiscovery(Assembly.GetExecutingAssembly())
-        .WithHandler<ProductCreatedEvent, ProductCreatedEventHandler>()
-    .Complete()
-    
-    // 🏛️ Domain-Driven Design Configuration
-    .WithDomainDrivenDesign()
-        .WithAutoRepositoryDiscovery(Assembly.GetExecutingAssembly())
-        .WithRepository<ProductAggregate, Guid>()
-        .WithCustomRepository<OrderAggregate, Guid, OrderRepository>()
-        .WithDomainValidation()
-    .Complete()
-    
-    // 🗑️ Soft Delete Configuration
-    .WithSoftDelete()
-    
-    // 🔑 ID Generation Configuration
-    .WithIdGeneration()
-        .WithGenerator<Guid, MyCustomGuidGenerator>()
-    .Complete()
-    
-    // 🎯 Custom Repository Registration
-    .WithCustomRepository<Product, int, ProductRepository>()
-    .WithRepositoriesFromAssembly(Assembly.GetExecutingAssembly())
-    
-    // ⚙️ Additional Services
-    .WithServices(services =>
-    {
-        services.AddScoped<IMyCustomService, MyCustomService>();
-    })
-    
-    // 🔍 Conditional Configuration
-    .When(isDevelopment, builder =>
-        builder.WithDetailedLogging(enableSensitiveDataLogging: true))
-    
-    // ✅ Validation & Build
-    .ValidateConfiguration()
-    .Build();
-```
+// Models/Category.cs
+using FS.EntityFramework.Library.Common;
 
-### 🔧 Classic Configuration
-
-The original configuration methods are still supported for backward compatibility:
-
-```csharp
-// Basic setup without audit
-services.AddGenericUnitOfWork<YourDbContext>();
-
-// With audit support using user service
-services.AddGenericUnitOfWorkWithAudit<YourDbContext>(
-    provider => provider.GetRequiredService<ICurrentUserService>().UserId);
-
-// With Domain-Driven Design services
-services.AddDomainServices();
-services.AddDomainRepositoriesFromCallingAssembly();
-
-// With domain events
-services.AddDomainEvents();
-services.AddDomainEventHandlersFromAssembly(typeof(ProductCreatedEvent).Assembly);
-```
-
-## 🏗️ Core Concepts
-
-### 📦 Base Entities
-
-The library provides several base entity classes to build your domain models:
-
-```csharp
-// 1️⃣ Basic Entity (ID + Domain Events)
-public class Tag : BaseEntity<int>
-{
-    public string Name { get; set; } = string.Empty;
-    public string Color { get; set; } = "#000000";
-}
-
-// 2️⃣ Auditable Entity (ID + Audit Properties + Domain Events)
-public class Category : BaseAuditableEntity<int>
+/// <summary>
+/// Simple entity with just ID and domain events support
+/// </summary>
+public class Category : BaseEntity<int>
 {
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     
-    // Automatic properties:
-    // - CreatedAt, CreatedBy
-    // - UpdatedAt, UpdatedBy
+    // Navigation property
+    public virtual ICollection<Product> Products { get; set; } = new List<Product>();
 }
 
-// 3️⃣ Full-Featured Entity (ID + Audit + Soft Delete + Domain Events)
+// Models/Product.cs
+using FS.EntityFramework.Library.Common;
+
+/// <summary>
+/// Auditable entity with creation and modification tracking
+/// </summary>
 public class Product : BaseAuditableEntity<int>, ISoftDelete
 {
     public string Name { get; set; } = string.Empty;
@@ -328,32 +176,19 @@ public class Product : BaseAuditableEntity<int>, ISoftDelete
     public int CategoryId { get; set; }
     
     // Navigation property
-    public Category Category { get; set; } = null!;
+    public virtual Category Category { get; set; } = null!;
     
-    // ISoftDelete properties (automatic)
+    // ISoftDelete properties (automatically implemented)
     public bool IsDeleted { get; set; }
     public DateTime? DeletedAt { get; set; }
     public string? DeletedBy { get; set; }
     
-    // Factory method with domain events
-    public static Product Create(string name, decimal price, string description, int categoryId)
-    {
-        var product = new Product
-        {
-            Name = name,
-            Price = price,
-            Description = description,
-            CategoryId = categoryId
-        };
-        
-        // Raise domain event
-        product.AddDomainEvent(new ProductCreatedEvent(product.Id, name, price));
-        
-        return product;
-    }
-    
+    // Business method with domain events
     public void UpdatePrice(decimal newPrice)
     {
+        if (newPrice <= 0)
+            throw new ArgumentException("Price must be positive", nameof(newPrice));
+            
         var oldPrice = Price;
         Price = newPrice;
         
@@ -363,139 +198,501 @@ public class Product : BaseAuditableEntity<int>, ISoftDelete
 }
 ```
 
-## 🏛️ Domain-Driven Design (DDD)
+### Step 4: Create Domain Events
 
-This library provides comprehensive support for Domain-Driven Design patterns and practices, enabling you to build rich domain models with proper encapsulation and business logic.
-
-### 🏭 Aggregate Roots
-
-Aggregate Roots are the entry points to your aggregates and ensure consistency boundaries:
+Domain events enable loose coupling between different parts of your application:
 
 ```csharp
-// ✅ Product Aggregate Root
-public class ProductAggregate : AggregateRoot<Guid>
+// Models/Events/ProductPriceChangedEvent.cs
+using FS.EntityFramework.Library.Common;
+
+public class ProductPriceChangedEvent : DomainEvent
 {
-    private readonly List<ProductVariant> _variants = new();
-    
-    public string Name { get; private set; } = string.Empty;
-    public Money Price { get; private set; } = Money.Zero;
-    public ProductStatus Status { get; private set; } = ProductStatus.Draft;
-    
-    // Read-only access to variants
-    public IReadOnlyCollection<ProductVariant> Variants => _variants.AsReadOnly();
-    
-    // Factory method enforcing business rules
-    public static ProductAggregate Create(string name, Money price)
+    public ProductPriceChangedEvent(int productId, decimal oldPrice, decimal newPrice)
     {
-        DomainGuard.AgainstNullOrWhiteSpace(name, nameof(name));
-        DomainGuard.AgainstNegativeOrZero(price.Amount, nameof(price));
-        
-        var product = new ProductAggregate(Guid.CreateVersion7())
-        {
-            Name = name,
-            Price = price,
-            Status = ProductStatus.Draft
-        };
-        
-        // Raise domain event
-        product.RaiseDomainEvent(new ProductCreatedEvent(product.Id, name, price.Amount));
-        
-        return product;
+        ProductId = productId;
+        OldPrice = oldPrice;
+        NewPrice = newPrice;
     }
     
-    // Business method with domain logic
-    public void PublishProduct()
-    {
-        CheckRule(new ProductMustHaveVariantsRule(_variants));
-        CheckRule(new ProductMustHaveValidPriceRule(Price));
-        
-        Status = ProductStatus.Published;
-        IncrementVersion();
-        
-        RaiseDomainEvent(new ProductPublishedEvent(Id, Name));
-    }
-    
-    public void AddVariant(string variantName, Money additionalPrice)
-    {
-        DomainGuard.AgainstNullOrWhiteSpace(variantName, nameof(variantName));
-        
-        var variant = new ProductVariant(variantName, additionalPrice);
-        _variants.Add(variant);
-        
-        RaiseDomainEvent(new ProductVariantAddedEvent(Id, variant.Id, variantName));
-    }
+    public int ProductId { get; }
+    public decimal OldPrice { get; }
+    public decimal NewPrice { get; }
 }
 
-// ✅ Order Aggregate Root with complex business logic
-public class OrderAggregate : AggregateRoot<Guid>
+// Services/EventHandlers/ProductPriceChangedEventHandler.cs
+using FS.EntityFramework.Library.Events;
+
+public class ProductPriceChangedEventHandler : IDomainEventHandler<ProductPriceChangedEvent>
 {
-    private readonly List<OrderItem> _items = new();
+    private readonly ILogger<ProductPriceChangedEventHandler> _logger;
     
-    public CustomerId CustomerId { get; private set; }
-    public OrderStatus Status { get; private set; }
-    public Money TotalAmount { get; private set; }
-    public DateTime OrderDate { get; private set; }
-    
-    public IReadOnlyCollection<OrderItem> Items => _items.AsReadOnly();
-    
-    public static OrderAggregate Create(CustomerId customerId)
+    public ProductPriceChangedEventHandler(ILogger<ProductPriceChangedEventHandler> logger)
     {
-        var order = new OrderAggregate(Guid.CreateVersion7())
-        {
-            CustomerId = customerId,
-            Status = OrderStatus.Pending,
-            TotalAmount = Money.Zero,
-            OrderDate = DateTime.UtcNow
-        };
-        
-        order.RaiseDomainEvent(new OrderCreatedEvent(order.Id, customerId));
-        
-        return order;
+        _logger = logger;
     }
     
-    public void AddItem(ProductId productId, Quantity quantity, Money unitPrice)
+    public async Task Handle(ProductPriceChangedEvent domainEvent, CancellationToken cancellationToken = default)
     {
-        CheckRule(new OrderMustBeInPendingStatusRule(Status));
+        _logger.LogInformation("Product {ProductId} price changed from {OldPrice} to {NewPrice}", 
+            domainEvent.ProductId, domainEvent.OldPrice, domainEvent.NewPrice);
         
-        var existingItem = _items.FirstOrDefault(i => i.ProductId == productId);
-        if (existingItem != null)
-        {
-            existingItem.UpdateQuantity(existingItem.Quantity + quantity);
-        }
-        else
-        {
-            var item = new OrderItem(productId, quantity, unitPrice);
-            _items.Add(item);
-        }
+        // Add your business logic here:
+        // - Send price change notification emails
+        // - Update related data
+        // - Trigger other business processes
         
-        RecalculateTotal();
-        RaiseDomainEvent(new OrderItemAddedEvent(Id, productId, quantity));
-    }
-    
-    public void ConfirmOrder()
-    {
-        CheckRule(new OrderMustHaveItemsRule(_items));
-        CheckRule(new OrderTotalMustBePositiveRule(TotalAmount));
-        
-        Status = OrderStatus.Confirmed;
-        IncrementVersion();
-        
-        RaiseDomainEvent(new OrderConfirmedEvent(Id, TotalAmount.Amount));
-    }
-    
-    private void RecalculateTotal()
-    {
-        TotalAmount = Money.FromDecimal(_items.Sum(i => i.TotalPrice.Amount));
+        await Task.CompletedTask;
     }
 }
 ```
 
-### 📐 Value Objects
+### Step 5: Configure Your DbContext
+
+You have two options for DbContext configuration:
+
+#### Option A: Use FSDbContext (Recommended)
+
+```csharp
+// Data/ApplicationDbContext.cs
+using FS.EntityFramework.Library.Common;
+
+public class ApplicationDbContext : FSDbContext
+{
+    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options, IServiceProvider serviceProvider) 
+        : base(options, serviceProvider)
+    {
+        // FSDbContext automatically applies all FS.EntityFramework configurations
+    }
+    
+    public DbSet<Product> Products { get; set; } = null!;
+    public DbSet<Category> Categories { get; set; } = null!;
+    
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder); // This applies FS configurations
+        
+        // Add your custom configurations here
+        modelBuilder.Entity<Product>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.Price).HasPrecision(18, 2);
+            
+            entity.HasOne(e => e.Category)
+                  .WithMany(c => c.Products)
+                  .HasForeignKey(e => e.CategoryId);
+        });
+        
+        modelBuilder.Entity<Category>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).HasMaxLength(100).IsRequired();
+        });
+    }
+}
+```
+
+#### Option B: Use Regular DbContext with Manual Configuration
+
+```csharp
+// Data/ApplicationDbContext.cs
+public class ApplicationDbContext : DbContext
+{
+    private readonly IServiceProvider? _serviceProvider;
+    
+    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options, IServiceProvider serviceProvider) 
+        : base(options)
+    {
+        _serviceProvider = serviceProvider;
+    }
+    
+    public DbSet<Product> Products { get; set; } = null!;
+    public DbSet<Category> Categories { get; set; } = null!;
+    
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+        
+        // Apply FS.EntityFramework configurations manually
+        if (_serviceProvider != null)
+        {
+            modelBuilder.ApplyFSEntityFrameworkConfigurations(_serviceProvider);
+        }
+        
+        // Your entity configurations...
+    }
+}
+```
+
+### Step 6: Configure Services with Fluent API
+
+The Fluent Configuration API provides a clean way to configure all features:
+
+```csharp
+// Program.cs
+var builder = WebApplication.CreateBuilder(args);
+
+// Add DbContext
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Configure FS.EntityFramework with all features
+builder.Services.AddFSEntityFramework<ApplicationDbContext>()
+    // Enable audit tracking
+    .WithAudit()
+        .UsingHttpContext() // For web applications
+    
+    // Enable domain events
+    .WithDomainEvents()
+        .UsingDefaultDispatcher()
+        .WithAutoHandlerDiscovery() // Automatically find event handlers
+    .Complete()
+    
+    // Enable soft delete
+    .WithSoftDelete()
+    
+    // Build the configuration
+    .Build();
+
+var app = builder.Build();
+```
+
+### Step 7: Create Business Services
+
+Now create services that use the repository pattern:
+
+```csharp
+// Services/ProductService.cs
+public class ProductService
+{
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly ILogger<ProductService> _logger;
+    
+    public ProductService(IUnitOfWork unitOfWork, ILogger<ProductService> logger)
+    {
+        _unitOfWork = unitOfWork;
+        _logger = logger;
+    }
+    
+    public async Task<Product> CreateProductAsync(CreateProductRequest request)
+    {
+        var repository = _unitOfWork.GetRepository<Product, int>();
+        
+        var product = new Product
+        {
+            Name = request.Name,
+            Price = request.Price,
+            Description = request.Description,
+            CategoryId = request.CategoryId
+        };
+        
+        await repository.AddAsync(product);
+        await _unitOfWork.SaveChangesAsync();
+        
+        _logger.LogInformation("Created product: {ProductName}", product.Name);
+        return product;
+    }
+    
+    public async Task<Product?> GetProductByIdAsync(int id)
+    {
+        var repository = _unitOfWork.GetRepository<Product, int>();
+        return await repository.GetByIdAsync(id);
+    }
+    
+    public async Task<IPaginate<Product>> GetProductsPagedAsync(int page, int size)
+    {
+        var repository = _unitOfWork.GetRepository<Product, int>();
+        
+        return await repository.GetPagedAsync(
+            pageIndex: page,
+            pageSize: size,
+            includes: new List<Expression<Func<Product, object>>> { p => p.Category },
+            orderBy: query => query.OrderBy(p => p.Name)
+        );
+    }
+    
+    public async Task UpdateProductPriceAsync(int id, decimal newPrice)
+    {
+        var repository = _unitOfWork.GetRepository<Product, int>();
+        var product = await repository.GetByIdAsync(id);
+        
+        if (product == null)
+            throw new InvalidOperationException($"Product with ID {id} not found");
+        
+        product.UpdatePrice(newPrice); // This will raise a domain event
+        
+        await repository.UpdateAsync(product);
+        await _unitOfWork.SaveChangesAsync(); // Domain events will be dispatched here
+    }
+    
+    public async Task SoftDeleteProductAsync(int id)
+    {
+        var repository = _unitOfWork.GetRepository<Product, int>();
+        var product = await repository.GetByIdAsync(id);
+        
+        if (product != null)
+        {
+            await repository.DeleteAsync(product); // Soft delete
+            await _unitOfWork.SaveChangesAsync();
+        }
+    }
+    
+    public async Task RestoreProductAsync(int id)
+    {
+        var repository = _unitOfWork.GetRepository<Product, int>();
+        await repository.RestoreAsync(id); // Restore soft deleted product
+        await _unitOfWork.SaveChangesAsync();
+    }
+}
+
+// DTOs for service methods
+public record CreateProductRequest(string Name, decimal Price, string Description, int CategoryId);
+```
+
+### Step 8: Implement Dynamic Filtering
+
+The library provides powerful dynamic filtering capabilities:
+
+```csharp
+// Services/ProductSearchService.cs
+using FS.EntityFramework.Library.Models;
+
+public class ProductSearchService
+{
+    private readonly IUnitOfWork _unitOfWork;
+    
+    public ProductSearchService(IUnitOfWork unitOfWork)
+    {
+        _unitOfWork = unitOfWork;
+    }
+    
+    public async Task<IPaginate<Product>> SearchProductsAsync(ProductFilterRequest request)
+    {
+        var repository = _unitOfWork.GetRepository<Product, int>();
+        
+        var filter = new FilterModel
+        {
+            SearchTerm = request.SearchTerm, // Searches across all string properties
+            Filters = new List<FilterItem>()
+        };
+        
+        // Add price range filtering
+        if (request.MinPrice.HasValue)
+        {
+            filter.Filters.Add(new FilterItem
+            {
+                Field = nameof(Product.Price),
+                Operator = "greaterthanorequal",
+                Value = request.MinPrice.Value.ToString()
+            });
+        }
+        
+        if (request.MaxPrice.HasValue)
+        {
+            filter.Filters.Add(new FilterItem
+            {
+                Field = nameof(Product.Price),
+                Operator = "lessthanorequal",
+                Value = request.MaxPrice.Value.ToString()
+            });
+        }
+        
+        // Add category filtering
+        if (request.CategoryId.HasValue)
+        {
+            filter.Filters.Add(new FilterItem
+            {
+                Field = nameof(Product.CategoryId),
+                Operator = "equals",
+                Value = request.CategoryId.Value.ToString()
+            });
+        }
+        
+        return await repository.GetPagedWithFilterAsync(
+            filter,
+            request.Page,
+            request.PageSize,
+            orderBy: query => query.OrderBy(p => p.Name),
+            includes: new List<Expression<Func<Product, object>>> { p => p.Category }
+        );
+    }
+}
+
+public record ProductFilterRequest(
+    string? SearchTerm = null,
+    decimal? MinPrice = null,
+    decimal? MaxPrice = null,
+    int? CategoryId = null,
+    int Page = 1,
+    int PageSize = 10);
+```
+
+### Step 9: Create API Controllers
+
+Finally, create controllers that expose your services:
+
+```csharp
+// Controllers/ProductsController.cs
+[ApiController]
+[Route("api/[controller]")]
+public class ProductsController : ControllerBase
+{
+    private readonly ProductService _productService;
+    private readonly ProductSearchService _searchService;
+    
+    public ProductsController(ProductService productService, ProductSearchService searchService)
+    {
+        _productService = productService;
+        _searchService = searchService;
+    }
+    
+    [HttpPost]
+    public async Task<ActionResult<Product>> CreateProduct(CreateProductRequest request)
+    {
+        var product = await _productService.CreateProductAsync(request);
+        return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, product);
+    }
+    
+    [HttpGet("{id}")]
+    public async Task<ActionResult<Product>> GetProduct(int id)
+    {
+        var product = await _productService.GetProductByIdAsync(id);
+        return product == null ? NotFound() : Ok(product);
+    }
+    
+    [HttpGet]
+    public async Task<ActionResult<IPaginate<Product>>> GetProducts(int page = 1, int size = 10)
+    {
+        var products = await _productService.GetProductsPagedAsync(page, size);
+        return Ok(products);
+    }
+    
+    [HttpGet("search")]
+    public async Task<ActionResult<IPaginate<Product>>> SearchProducts([FromQuery] ProductFilterRequest request)
+    {
+        var products = await _searchService.SearchProductsAsync(request);
+        return Ok(products);
+    }
+    
+    [HttpPut("{id}/price")]
+    public async Task<IActionResult> UpdateProductPrice(int id, [FromBody] decimal newPrice)
+    {
+        await _productService.UpdateProductPriceAsync(id, newPrice);
+        return NoContent();
+    }
+    
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteProduct(int id)
+    {
+        await _productService.SoftDeleteProductAsync(id);
+        return NoContent();
+    }
+    
+    [HttpPost("{id}/restore")]
+    public async Task<IActionResult> RestoreProduct(int id)
+    {
+        await _productService.RestoreProductAsync(id);
+        return NoContent();
+    }
+}
+```
+
+### Step 10: Register Services
+
+Don't forget to register your custom services:
+
+```csharp
+// Program.cs (continued)
+builder.Services.AddScoped<ProductService>();
+builder.Services.AddScoped<ProductSearchService>();
+```
+
+## 🏛️ Domain-Driven Design Features
+
+The library provides comprehensive support for Domain-Driven Design patterns.
+
+### Aggregate Roots
+
+Aggregate Roots are the entry points to your aggregates and ensure consistency boundaries:
+
+```csharp
+using FS.EntityFramework.Library.Common;
+using FS.EntityFramework.Library.Domain;
+
+public class OrderAggregate : AggregateRoot<Guid>
+{
+    private readonly List<OrderItem> _items = new();
+    
+    public string OrderNumber { get; private set; } = string.Empty;
+    public decimal TotalAmount { get; private set; }
+    public DateTime OrderDate { get; private set; }
+    
+    // Read-only access to items
+    public IReadOnlyCollection<OrderItem> Items => _items.AsReadOnly();
+    
+    // Factory method enforcing business rules
+    public static OrderAggregate Create(string orderNumber)
+    {
+        DomainGuard.AgainstNullOrWhiteSpace(orderNumber, nameof(orderNumber));
+        
+        var order = new OrderAggregate(Guid.CreateVersion7())
+        {
+            OrderNumber = orderNumber,
+            OrderDate = DateTime.UtcNow,
+            TotalAmount = 0
+        };
+        
+        // Raise domain event
+        order.RaiseDomainEvent(new OrderCreatedEvent(order.Id, orderNumber));
+        
+        return order;
+    }
+    
+    // Business method with domain logic
+    public void AddItem(string productName, decimal unitPrice, int quantity)
+    {
+        DomainGuard.AgainstNullOrWhiteSpace(productName, nameof(productName));
+        DomainGuard.AgainstNegativeOrZero(unitPrice, nameof(unitPrice));
+        DomainGuard.AgainstNegativeOrZero(quantity, nameof(quantity));
+        
+        var item = new OrderItem(productName, unitPrice, quantity);
+        _items.Add(item);
+        
+        RecalculateTotal();
+        RaiseDomainEvent(new OrderItemAddedEvent(Id, productName, quantity));
+    }
+    
+    private void RecalculateTotal()
+    {
+        TotalAmount = _items.Sum(i => i.TotalPrice);
+    }
+}
+
+public class OrderItem
+{
+    public string ProductName { get; }
+    public decimal UnitPrice { get; }
+    public int Quantity { get; }
+    public decimal TotalPrice => UnitPrice * Quantity;
+    
+    public OrderItem(string productName, decimal unitPrice, int quantity)
+    {
+        ProductName = productName;
+        UnitPrice = unitPrice;
+        Quantity = quantity;
+    }
+}
+```
+
+### Value Objects
 
 Value Objects encapsulate business concepts and ensure type safety:
 
 ```csharp
-// ✅ Money Value Object
+using FS.EntityFramework.Library.Common;
+using FS.EntityFramework.Library.Domain;
+
 public class Money : ValueObject
 {
     public decimal Amount { get; }
@@ -517,12 +714,10 @@ public class Money : ValueObject
     public Money Add(Money other)
     {
         if (Currency != other.Currency)
-            throw new DomainInvariantViolationException("Cannot add money with different currencies");
+            throw new InvalidOperationException("Cannot add money with different currencies");
         
         return new Money(Amount + other.Amount, Currency);
     }
-    
-    public Money Multiply(decimal factor) => new(Amount * factor, Currency);
     
     protected override IEnumerable<object> GetEqualityComponents()
     {
@@ -532,81 +727,15 @@ public class Money : ValueObject
     
     // Operators
     public static Money operator +(Money left, Money right) => left.Add(right);
-    public static Money operator *(Money money, decimal factor) => money.Multiply(factor);
-}
-
-// ✅ Strongly Typed IDs
-public class CustomerId : ValueObject
-{
-    public Guid Value { get; }
-    
-    public CustomerId(Guid value)
-    {
-        DomainGuard.Against(value == Guid.Empty, "Customer ID cannot be empty");
-        Value = value;
-    }
-    
-    public static implicit operator Guid(CustomerId customerId) => customerId.Value;
-    public static implicit operator CustomerId(Guid value) => new(value);
-    
-    protected override IEnumerable<object> GetEqualityComponents()
-    {
-        yield return Value;
-    }
-}
-
-// ✅ Address Value Object
-public class Address : ValueObject
-{
-    public string Street { get; }
-    public string City { get; }
-    public string PostalCode { get; }
-    public string Country { get; }
-    
-    public Address(string street, string city, string postalCode, string country)
-    {
-        DomainGuard.AgainstNullOrWhiteSpace(street, nameof(street));
-        DomainGuard.AgainstNullOrWhiteSpace(city, nameof(city));
-        DomainGuard.AgainstNullOrWhiteSpace(postalCode, nameof(postalCode));
-        DomainGuard.AgainstNullOrWhiteSpace(country, nameof(country));
-        
-        Street = street;
-        City = city;
-        PostalCode = postalCode;
-        Country = country;
-    }
-    
-    protected override IEnumerable<object> GetEqualityComponents()
-    {
-        yield return Street;
-        yield return City;
-        yield return PostalCode;
-        yield return Country;
-    }
 }
 ```
 
-### ⚖️ Business Rules & Domain Guard
+### Business Rules
 
-Implement business rules and domain validation:
+Implement business rules for domain validation:
 
 ```csharp
-// ✅ Business Rules
-public class ProductMustHaveVariantsRule : BusinessRule
-{
-    private readonly IReadOnlyCollection<ProductVariant> _variants;
-    
-    public ProductMustHaveVariantsRule(IReadOnlyCollection<ProductVariant> variants)
-    {
-        _variants = variants;
-    }
-    
-    public override bool IsBroken() => _variants.Count == 0;
-    
-    public override string Message => "Product must have at least one variant to be published";
-    
-    public override string ErrorCode => "PRODUCT_NO_VARIANTS";
-}
+using FS.EntityFramework.Library.Domain;
 
 public class OrderMustHaveItemsRule : BusinessRule
 {
@@ -624,434 +753,103 @@ public class OrderMustHaveItemsRule : BusinessRule
     public override string ErrorCode => "ORDER_NO_ITEMS";
 }
 
-// ✅ Using Domain Guard
-public class Customer : AggregateRoot<CustomerId>
+// Usage in aggregate
+public void ProcessOrder()
 {
-    public string Name { get; private set; } = string.Empty;
-    public Email Email { get; private set; } = null!;
-    public Address Address { get; private set; } = null!;
+    CheckRule(new OrderMustHaveItemsRule(_items));
     
-    public static Customer Create(string name, string email, Address address)
-    {
-        // Domain Guard validations
-        DomainGuard.AgainstNullOrWhiteSpace(name, nameof(name));
-        DomainGuard.AgainstNull(address, nameof(address));
-        
-        var customer = new Customer(new CustomerId(Guid.CreateVersion7()))
-        {
-            Name = name,
-            Email = Email.Create(email),
-            Address = address
-        };
-        
-        customer.RaiseDomainEvent(new CustomerCreatedEvent(customer.Id, name, email));
-        
-        return customer;
-    }
-    
-    public void UpdateAddress(Address newAddress)
-    {
-        DomainGuard.AgainstNull(newAddress, nameof(newAddress));
-        
-        var oldAddress = Address;
-        Address = newAddress;
-        
-        RaiseDomainEvent(new CustomerAddressChangedEvent(Id, oldAddress, newAddress));
-    }
+    // Process the order...
 }
 ```
 
-### 🎯 Domain Specifications
+### Domain Specifications
 
 Build reusable domain logic with specifications:
 
 ```csharp
-// ✅ Domain Specifications
-public class ActiveCustomersSpecification : DomainSpecification<Customer>
+using FS.EntityFramework.Library.Domain;
+
+public class ExpensiveProductsSpecification : DomainSpecification<Product>
 {
-    public override bool IsSatisfiedBy(Customer candidate)
+    private readonly decimal _minimumPrice;
+    
+    public ExpensiveProductsSpecification(decimal minimumPrice)
     {
-        return candidate.IsActive && !candidate.IsDeleted;
+        _minimumPrice = minimumPrice;
     }
     
-    public override Expression<Func<Customer, bool>> ToExpression()
+    public override bool IsSatisfiedBy(Product candidate)
     {
-        return customer => customer.IsActive && !customer.IsDeleted;
+        return candidate.Price >= _minimumPrice;
+    }
+    
+    public override Expression<Func<Product, bool>> ToExpression()
+    {
+        return product => product.Price >= _minimumPrice;
     }
 }
 
-public class HighValueCustomersSpecification : DomainSpecification<Customer>
-{
-    private readonly decimal _minimumOrderValue;
-    
-    public HighValueCustomersSpecification(decimal minimumOrderValue)
-    {
-        _minimumOrderValue = minimumOrderValue;
-    }
-    
-    public override bool IsSatisfiedBy(Customer candidate)
-    {
-        return candidate.TotalOrderValue >= _minimumOrderValue;
-    }
-    
-    public override Expression<Func<Customer, bool>> ToExpression()
-    {
-        return customer => customer.TotalOrderValue >= _minimumOrderValue;
-    }
-}
-
-// ✅ Using Composite Specifications
-public class CustomerQueryService
-{
-    private readonly IDomainRepository<Customer, CustomerId> _customerRepository;
-    
-    public CustomerQueryService(IDomainRepository<Customer, CustomerId> customerRepository)
-    {
-        _customerRepository = customerRepository;
-    }
-    
-    public async Task<IEnumerable<Customer>> GetActiveHighValueCustomersAsync(decimal minimumValue)
-    {
-        var activeSpec = new ActiveCustomersSpecification();
-        var highValueSpec = new HighValueCustomersSpecification(minimumValue);
-        
-        // Combine specifications
-        var combinedSpec = activeSpec.And(highValueSpec);
-        
-        return await _customerRepository.FindAsync(combinedSpec);
-    }
-}
+// Usage
+var expensiveSpec = new ExpensiveProductsSpecification(100);
+var expensiveProducts = await repository.FindAsync(expensiveSpec.ToExpression());
 ```
 
-### 🏗️ Domain Repositories
+## 📊 Advanced Features
 
-Domain repositories provide aggregate-specific operations:
+### ID Generation Extensions
+
+The library supports modular ID generation strategies:
+
+#### GUID Version 7 (Requires extension package)
 
 ```csharp
-// ✅ Domain Repository Interface
-public interface IProductRepository : IDomainRepository<ProductAggregate, Guid>
-{
-    Task<IEnumerable<ProductAggregate>> GetByStatusAsync(ProductStatus status, CancellationToken cancellationToken = default);
-    Task<ProductAggregate?> GetByNameAsync(string name, CancellationToken cancellationToken = default);
-    Task<bool> ExistsWithNameAsync(string name, CancellationToken cancellationToken = default);
-}
+// Install: dotnet add package FS.EntityFramework.Library.GuidV7
 
-// ✅ Domain Repository Implementation
-public class ProductRepository : DomainRepository<ProductAggregate, Guid>, IProductRepository
-{
-    public ProductRepository(IRepository<ProductAggregate, Guid> efRepository) 
-        : base(efRepository)
-    {
-    }
-    
-    public async Task<IEnumerable<ProductAggregate>> GetByStatusAsync(ProductStatus status, CancellationToken cancellationToken = default)
-    {
-        var specification = new ProductsByStatusSpecification(status);
-        return await FindAsync(specification, cancellationToken);
-    }
-    
-    public async Task<ProductAggregate?> GetByNameAsync(string name, CancellationToken cancellationToken = default)
-    {
-        var specification = new ProductByNameSpecification(name);
-        var products = await FindAsync(specification, cancellationToken);
-        return products.FirstOrDefault();
-    }
-    
-    public async Task<bool> ExistsWithNameAsync(string name, CancellationToken cancellationToken = default)
-    {
-        var specification = new ProductByNameSpecification(name);
-        return await AnyAsync(specification, cancellationToken);
-    }
-}
-
-// ✅ Registration
-services.AddFSEntityFramework<YourDbContext>()
-    .WithDomainDrivenDesign()
-        .WithCustomRepository<ProductAggregate, Guid, ProductRepository>()
-    .Complete()
+services.AddFSEntityFramework<ApplicationDbContext>()
+    .WithGuidV7() // Automatic GUID V7 generation
     .Build();
+
+// Entity with GUID V7
+public class User : BaseAuditableEntity<Guid>
+{
+    public string Name { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    
+    // ID will be automatically generated as GUID V7
+}
 ```
 
-### 🔄 Domain Unit of Work
-
-Coordinate multiple aggregate changes:
+#### ULID (Requires extension package)
 
 ```csharp
-// ✅ Domain Service using Domain Unit of Work
-public class OrderProcessingService
+// Install: dotnet add package FS.EntityFramework.Library.UlidGenerator
+
+services.AddFSEntityFramework<ApplicationDbContext>()
+    .WithUlid() // Automatic ULID generation
+    .Build();
+
+// Entity with ULID
+public class Order : BaseAuditableEntity<Ulid>
 {
-    private readonly IDomainUnitOfWork _domainUnitOfWork;
-    private readonly IDomainRepository<OrderAggregate, Guid> _orderRepository;
-    private readonly IDomainRepository<ProductAggregate, Guid> _productRepository;
-    private readonly IDomainRepository<Customer, CustomerId> _customerRepository;
+    public string OrderNumber { get; set; } = string.Empty;
     
-    public OrderProcessingService(
-        IDomainUnitOfWork domainUnitOfWork,
-        IDomainRepository<OrderAggregate, Guid> orderRepository,
-        IDomainRepository<ProductAggregate, Guid> productRepository,
-        IDomainRepository<Customer, CustomerId> customerRepository)
-    {
-        _domainUnitOfWork = domainUnitOfWork;
-        _orderRepository = orderRepository;
-        _productRepository = productRepository;
-        _customerRepository = customerRepository;
-    }
-    
-    public async Task<OrderAggregate> ProcessOrderAsync(ProcessOrderCommand command)
-    {
-        // Begin domain transaction
-        await _domainUnitOfWork.BeginTransactionAsync();
-        
-        try
-        {
-            // Load aggregates
-            var customer = await _customerRepository.GetByIdRequiredAsync(command.CustomerId);
-            var order = OrderAggregate.Create(command.CustomerId);
-            
-            // Process order items
-            foreach (var item in command.Items)
-            {
-                var product = await _productRepository.GetByIdRequiredAsync(item.ProductId);
-                
-                // Domain logic - check business rules
-                DomainGuard.Against(!product.IsAvailable, "Product is not available");
-                
-                order.AddItem(item.ProductId, item.Quantity, product.Price);
-            }
-            
-            // Apply customer discount if applicable
-            if (customer.IsPremium)
-            {
-                order.ApplyDiscount(customer.DiscountPercentage);
-            }
-            
-            // Confirm the order
-            order.ConfirmOrder();
-            
-            // Register aggregates for domain event publishing
-            _domainUnitOfWork.RegisterAggregate(order);
-            _domainUnitOfWork.RegisterAggregate(customer);
-            
-            // Save aggregate
-            await _orderRepository.AddAsync(order);
-            
-            // Save changes and publish domain events
-            await _domainUnitOfWork.SaveChangesAsync();
-            
-            // Commit transaction
-            await _domainUnitOfWork.CommitTransactionAsync();
-            
-            return order;
-        }
-        catch
-        {
-            await _domainUnitOfWork.RollbackTransactionAsync();
-            throw;
-        }
-    }
+    // ID will be automatically generated as ULID
 }
 ```
 
-## 🎭 Domain Events
+### Advanced Audit Configuration
 
-Domain Events enable loose coupling and implementing cross-cutting concerns in a clean way.
-
-```mermaid
-graph LR
-    A[Aggregate Root] -->|Raises| B[Domain Event]
-    B --> C[Event Dispatcher]
-    C --> D[Event Handler 1]
-    C --> E[Event Handler 2]
-    C --> F[Event Handler N]
-    
-    D --> G[Send Email]
-    E --> H[Update Cache]
-    F --> I[Log Audit]
-```
-
-### Domain Event Implementation
+Configure audit tracking with different user context providers:
 
 ```csharp
-// ✅ 1. Define Domain Events
-public class ProductCreatedEvent : DomainEvent
-{
-    public ProductCreatedEvent(Guid productId, string productName, decimal price)
-    {
-        ProductId = productId;
-        ProductName = productName;
-        Price = price;
-    }
-    
-    public Guid ProductId { get; }
-    public string ProductName { get; }
-    public decimal Price { get; }
-}
-
-public class OrderConfirmedEvent : DomainEvent
-{
-    public OrderConfirmedEvent(Guid orderId, decimal totalAmount, CustomerId customerId)
-    {
-        OrderId = orderId;
-        TotalAmount = totalAmount;
-        CustomerId = customerId;
-    }
-    
-    public Guid OrderId { get; }
-    public decimal TotalAmount { get; }
-    public CustomerId CustomerId { get; }
-}
-
-// ✅ 2. Create Event Handlers
-public class ProductCreatedEventHandler : IDomainEventHandler<ProductCreatedEvent>
-{
-    private readonly ILogger<ProductCreatedEventHandler> _logger;
-    private readonly IEmailService _emailService;
-    private readonly ICacheService _cacheService;
-    
-    public ProductCreatedEventHandler(
-        ILogger<ProductCreatedEventHandler> logger,
-        IEmailService emailService,
-        ICacheService cacheService)
-    {
-        _logger = logger;
-        _emailService = emailService;
-        _cacheService = cacheService;
-    }
-    
-    public async Task Handle(ProductCreatedEvent domainEvent, CancellationToken cancellationToken = default)
-    {
-        _logger.LogInformation("Product created: {ProductName} with price: {Price}", 
-            domainEvent.ProductName, domainEvent.Price);
-        
-        // Invalidate cache
-        await _cacheService.InvalidateAsync("products", cancellationToken);
-        
-        // Send notification email
-        await _emailService.SendProductCreatedNotificationAsync(
-            domainEvent.ProductName, 
-            domainEvent.Price, 
-            cancellationToken);
-    }
-}
-
-// ✅ 3. Order Confirmed Handler
-[DomainEventHandler(ServiceLifetime = ServiceLifetime.Scoped, Order = 1)]
-public class OrderConfirmedEventHandler : IDomainEventHandler<OrderConfirmedEvent>
-{
-    private readonly IEmailService _emailService;
-    private readonly IInventoryService _inventoryService;
-    private readonly IDomainRepository<Customer, CustomerId> _customerRepository;
-    
-    public OrderConfirmedEventHandler(
-        IEmailService emailService,
-        IInventoryService inventoryService,
-        IDomainRepository<Customer, CustomerId> customerRepository)
-    {
-        _emailService = emailService;
-        _inventoryService = inventoryService;
-        _customerRepository = customerRepository;
-    }
-    
-    public async Task Handle(OrderConfirmedEvent domainEvent, CancellationToken cancellationToken = default)
-    {
-        // Update customer statistics
-        var customer = await _customerRepository.GetByIdRequiredAsync(domainEvent.CustomerId, cancellationToken);
-        customer.UpdateOrderStatistics(domainEvent.TotalAmount);
-        
-        // Reserve inventory
-        await _inventoryService.ReserveInventoryAsync(domainEvent.OrderId, cancellationToken);
-        
-        // Send confirmation email
-        await _emailService.SendOrderConfirmationAsync(domainEvent.OrderId, cancellationToken);
-    }
-}
-```
-
-### Domain Event Configuration
-
-```csharp
-// ✅ Automatic Handler Discovery (Simplest)
-services.AddFSEntityFramework<YourDbContext>()
-    .WithDomainEvents()
-        .UsingDefaultDispatcher()
-        .WithAutoHandlerDiscovery() // Scans calling assembly
-    .Complete()
-    .Build();
-
-// ✅ Multiple Assembly Discovery
-services.AddFSEntityFramework<YourDbContext>()
-    .WithDomainEvents()
-        .UsingDefaultDispatcher()
-        .WithAutoHandlerDiscovery(
-            typeof(ProductCreatedEvent).Assembly,
-            typeof(OrderCreatedEvent).Assembly)
-    .Complete()
-    .Build();
-
-// ✅ Attribute-Based Discovery
-services.AddFSEntityFramework<YourDbContext>()
-    .WithDomainEvents()
-        .UsingDefaultDispatcher()
-        .WithAttributeBasedDiscovery(Assembly.GetExecutingAssembly())
-    .Complete()
-    .Build();
-
-// ✅ Custom Handler Registration
-services.AddFSEntityFramework<YourDbContext>()
-    .WithDomainEvents()
-        .UsingDefaultDispatcher()
-        .WithHandler<ProductCreatedEvent, ProductCreatedEventHandler>()
-        .WithHandler<OrderConfirmedEvent, OrderConfirmedEventHandler>()
-    .Complete()
-    .Build();
-```
-
-## 📊 Audit Tracking
-
-Automatic audit tracking for entity lifecycle events with flexible user context providers.
-
-```mermaid
-graph TB
-    A[Entity Save Operation] --> B{Audit Enabled?}
-    B -->|Yes| C[AuditInterceptor]
-    B -->|No| D[Regular Save]
-    
-    C --> E{Entity State?}
-    E -->|Added| F[Set CreatedAt, CreatedBy]
-    E -->|Modified| G[Set UpdatedAt, UpdatedBy]
-    E -->|Deleted| H{Soft Delete?}
-    
-    H -->|Yes| I[Set IsDeleted, DeletedAt, DeletedBy]
-    H -->|No| J[Hard Delete]
-    
-    F --> K[Get Current User]
-    G --> K
-    I --> K
-    
-    K --> L[User Context Provider]
-    L --> M[HttpContext]
-    L --> N[Custom Service]
-    L --> O[Static User]
-    L --> P[Interface-Based]
-```
-
-### Audit Configuration Examples
-
-```csharp
-// ✅ 1. HttpContext-based User Tracking (Web Apps)
-services.AddFSEntityFramework<YourDbContext>()
+// Web applications with HttpContext
+services.AddFSEntityFramework<ApplicationDbContext>()
     .WithAudit()
-        .UsingHttpContext() // Uses NameIdentifier claim by default
+        .UsingHttpContext() // Uses NameIdentifier claim
     .Build();
 
-// ✅ 2. Custom Claim Type
-services.AddFSEntityFramework<YourDbContext>()
-    .WithAudit()
-        .UsingHttpContext("custom-user-id-claim")
-    .Build();
-
-// ✅ 3. Custom User Provider
-services.AddFSEntityFramework<YourDbContext>()
+// Custom user provider
+services.AddFSEntityFramework<ApplicationDbContext>()
     .WithAudit()
         .UsingUserProvider(provider =>
         {
@@ -1060,7 +858,7 @@ services.AddFSEntityFramework<YourDbContext>()
         })
     .Build();
 
-// ✅ 4. Interface-based User Context
+// Interface-based user context
 public class ApplicationUserContext : IUserContext
 {
     private readonly ICurrentUserService _userService;
@@ -1074,724 +872,330 @@ public class ApplicationUserContext : IUserContext
 }
 
 services.AddScoped<IUserContext, ApplicationUserContext>();
-services.AddFSEntityFramework<YourDbContext>()
+services.AddFSEntityFramework<ApplicationDbContext>()
     .WithAudit()
         .UsingUserContext<IUserContext>()
     .Build();
 ```
 
-## 🗑️ Soft Delete & Restore
+### Comprehensive Configuration Example
 
-Comprehensive soft delete implementation with restore functionality and query filters.
-
-```mermaid
-graph TB
-    A[Entity Delete Operation] --> B{Implements ISoftDelete?}
-    B -->|Yes| C[Soft Delete]
-    B -->|No| D[Hard Delete]
-    
-    C --> E[Set IsDeleted = true]
-    E --> F[Set DeletedAt = DateTime.UtcNow]
-    F --> G[Set DeletedBy = CurrentUser]
-    G --> H[Update Entity]
-    
-    D --> I[Remove from Database]
-    
-    J[Query Operations] --> K[Global Query Filter]
-    K --> L[WHERE IsDeleted = false]
-    
-    M[Special Queries] --> N[IncludeDeleted]
-    M --> O[OnlyDeleted]
-    
-    P[Restore Operation] --> Q[Set IsDeleted = false]
-    Q --> R[Set DeletedAt = null]
-    R --> S[Set DeletedBy = null]
-    S --> T[Update Entity]
-```
-
-### Soft Delete Configuration
+Here's a full-featured configuration example:
 
 ```csharp
-// ✅ Enable Soft Delete with Global Query Filters
-services.AddFSEntityFramework<YourDbContext>()
-    .WithSoftDelete()  // Automatically applies global query filters
-    .Build();
-
-// ✅ Manual Configuration in DbContext
-protected override void OnModelCreating(ModelBuilder modelBuilder)
-{
-    base.OnModelCreating(modelBuilder);
+services.AddFSEntityFramework<ApplicationDbContext>()
+    // Audit Configuration
+    .WithAudit()
+        .UsingHttpContext() // User tracking via HTTP context
     
-    // Apply soft delete query filters to all ISoftDelete entities
-    modelBuilder.ApplySoftDeleteQueryFilters();
-}
-```
-
-### Soft Delete Operations
-
-```csharp
-public class ProductService
-{
-    private readonly IUnitOfWork _unitOfWork;
+    // Domain Events Configuration
+    .WithDomainEvents()
+        .UsingDefaultDispatcher() // Default event dispatcher
+        .WithAutoHandlerDiscovery() // Auto-discover event handlers
+    .Complete()
     
-    public ProductService(IUnitOfWork unitOfWork)
-    {
-        _unitOfWork = unitOfWork;
-    }
+    // Soft Delete Configuration
+    .WithSoftDelete()
     
-    // ✅ Soft Delete Operations
-    public async Task SoftDeleteProductAsync(int productId)
-    {
-        var repository = _unitOfWork.GetRepository<Product, int>();
-        var product = await repository.GetByIdAsync(productId);
-        
-        if (product != null)
-        {
-            // This will soft delete (set IsDeleted=true, DeletedAt=now, DeletedBy=user)
-            await repository.DeleteAsync(product, saveChanges: true);
-        }
-    }
-    
-    // ✅ Hard Delete (Permanent Removal)
-    public async Task HardDeleteProductAsync(int productId)
-    {
-        var repository = _unitOfWork.GetRepository<Product, int>();
-        var product = await repository.GetByIdAsync(productId);
-        
-        if (product != null)
-        {
-            // This will permanently remove from database
-            await repository.HardDeleteAsync(product, saveChanges: true);
-        }
-    }
-    
-    // ✅ Restore Soft Deleted Entity
-    public async Task RestoreProductAsync(int productId)
-    {
-        var repository = _unitOfWork.GetRepository<Product, int>();
-        
-        // This will restore the soft-deleted product
-        await repository.RestoreAsync(productId, saveChanges: true);
-    }
-}
-```
-
-## 🔍 Dynamic Filtering
-
-Powerful dynamic filtering system that allows building complex queries from filter models at runtime.
-
-```mermaid
-graph TB
-    A[FilterModel] --> B[SearchTerm]
-    A --> C[FilterItems]
-    
-    C --> D[Field Name]
-    C --> E[Operator]
-    C --> F[Value]
-    
-    E --> G[equals]
-    E --> H[contains]
-    E --> I[startswith]
-    E --> J[endswith]
-    E --> K[greaterthan]
-    E --> L[lessthan]
-    E --> M[greaterthanorequal]
-    E --> N[lessthanorequal]
-    E --> O[notequals]
-    
-    B --> P[Expression Builder]
-    D --> P
-    E --> P
-    F --> P
-    
-    P --> Q[LINQ Expression]
-    Q --> R[Database Query]
-```
-
-### Dynamic Filtering Usage
-
-```csharp
-public class ProductFilterService
-{
-    private readonly IUnitOfWork _unitOfWork;
-    
-    public ProductFilterService(IUnitOfWork unitOfWork)
-    {
-        _unitOfWork = unitOfWork;
-    }
-    
-    // ✅ Simple Search Term Filtering
-    public async Task<IPaginate<Product>> SearchProductsAsync(string searchTerm, int page, int size)
-    {
-        var filter = new FilterModel
-        {
-            SearchTerm = searchTerm // Searches across all string properties
-        };
-        
-        var repository = _unitOfWork.GetRepository<Product, int>();
-        return await repository.GetPagedWithFilterAsync(filter, page, size);
-    }
-    
-    // ✅ Complex Multi-Field Filtering
-    public async Task<IPaginate<Product>> FilterProductsAsync(ProductFilterRequest request)
-    {
-        var filter = new FilterModel
-        {
-            SearchTerm = request.SearchTerm,
-            Filters = new List<FilterItem>()
-        };
-        
-        // Price range filtering
-        if (request.MinPrice.HasValue)
-        {
-            filter.Filters.Add(new FilterItem
-            {
-                Field = nameof(Product.Price),
-                Operator = "greaterthanorequal",
-                Value = request.MinPrice.Value.ToString()
-            });
-        }
-        
-        // Category filtering
-        if (request.CategoryId.HasValue)
-        {
-            filter.Filters.Add(new FilterItem
-            {
-                Field = nameof(Product.CategoryId),
-                Operator = "equals",
-                Value = request.CategoryId.Value.ToString()
-            });
-        }
-        
-        var repository = _unitOfWork.GetRepository<Product, int>();
-        
-        return await repository.GetPagedWithFilterAsync(
-            filter,
-            request.Page,
-            request.PageSize,
-            orderBy: query => query.OrderByDescending(p => p.CreatedAt),
-            includes: new List<Expression<Func<Product, object>>> { p => p.Category }
-        );
-    }
-}
-```
-
-## 📄 Pagination
-
-Comprehensive pagination support with metadata and flexible query integration.
-
-```csharp
-// ✅ Simple Pagination
-public async Task<IPaginate<Product>> GetProductsPagedAsync(int page, int size)
-{
-    var repository = _unitOfWork.GetRepository<Product, int>();
-    
-    return await repository.GetPagedAsync(page, size);
-}
-
-// ✅ Pagination with Filtering and Ordering
-public async Task<IPaginate<Product>> GetProductsWithCategoryPagedAsync(int page, int size)
-{
-    var repository = _unitOfWork.GetRepository<Product, int>();
-    
-    return await repository.GetPagedAsync(
-        pageIndex: page,
-        pageSize: size,
-        predicate: p => p.Price > 100,
-        orderBy: query => query.OrderByDescending(p => p.CreatedAt),
-        includes: new List<Expression<Func<Product, object>>> { p => p.Category }
-    );
-}
-```
-
-## 🔑 ID Generation
-
-Modular ID generation system supporting pluggable strategies including GUID V7, ULID, and custom generators.
-
-### GUID Version 7 Integration
-
-```csharp
-// ✅ Install Extension Package
-// dotnet add package FS.EntityFramework.Library.GuidV7
-
-// ✅ Basic GUID V7 Setup (.NET 9+)
-services.AddFSEntityFramework<YourDbContext>()
-    .WithGuidV7()  // Automatic GUID V7 generation
-    .Build();
-
-// ✅ Entity with GUID V7
-public class User : BaseAuditableEntity<Guid>
-{
-    public string Name { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
-    
-    // ID will be automatically generated as GUID V7
-}
-```
-
-### ULID Integration
-
-```csharp
-// ✅ Install Extension Package
-// dotnet add package FS.EntityFramework.Library.UlidGenerator
-
-// ✅ Basic ULID Setup
-services.AddFSEntityFramework<YourDbContext>()
-    .WithUlid()  // Automatic ULID generation
-    .Build();
-
-// ✅ Entity with ULID
-public class Order : BaseAuditableEntity<Ulid>, ISoftDelete
-{
-    public string OrderNumber { get; set; } = string.Empty;
-    public decimal TotalAmount { get; set; }
-    
-    // ID will be automatically generated as ULID
-}
-```
-
-### Custom ID Generators
-
-```csharp
-// ✅ Custom String ID Generator
-public class CustomStringIdGenerator : IIdGenerator<string>
-{
-    public Type KeyType => typeof(string);
-    
-    public string Generate()
-    {
-        return $"CUST_{DateTime.UtcNow:yyyyMMdd}_{Guid.NewGuid():N}";
-    }
-    
-    object IIdGenerator.Generate()
-    {
-        return Generate();
-    }
-}
-
-// ✅ Register Custom Generators
-services.AddFSEntityFramework<YourDbContext>()
+    // ID Generation Configuration
     .WithIdGeneration()
         .WithGenerator<string, CustomStringIdGenerator>()
-        .WithGenerator<long, TimestampIdGenerator>()
     .Complete()
+    
+    // Validation & Build
+    .ValidateConfiguration()
     .Build();
-```
-
-## 📚 Advanced Usage
-
-### Using FSDbContext (Automatic Configuration)
-
-```csharp
-// ✅ Using FSDbContext for automatic configuration
-public class ApplicationDbContext : FSDbContext
-{
-    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options, IServiceProvider serviceProvider) 
-        : base(options, serviceProvider)
-    {
-    }
-    
-    public DbSet<Product> Products { get; set; }
-    public DbSet<Category> Categories { get; set; }
-    public DbSet<OrderAggregate> Orders { get; set; }
-    
-    // FS.EntityFramework configurations are automatically applied
-}
-```
-
-### Advanced Domain Services
-
-```csharp
-// ✅ Domain Service with Complex Business Logic
-public class PricingDomainService
-{
-    private readonly IDomainRepository<ProductAggregate, Guid> _productRepository;
-    private readonly IDomainRepository<Customer, CustomerId> _customerRepository;
-    
-    public PricingDomainService(
-        IDomainRepository<ProductAggregate, Guid> productRepository,
-        IDomainRepository<Customer, CustomerId> customerRepository)
-    {
-        _productRepository = productRepository;
-        _customerRepository = customerRepository;
-    }
-    
-    public async Task<Money> CalculatePriceForCustomerAsync(Guid productId, CustomerId customerId)
-    {
-        var product = await _productRepository.GetByIdRequiredAsync(productId);
-        var customer = await _customerRepository.GetByIdRequiredAsync(customerId);
-        
-        var basePrice = product.Price;
-        
-        // Apply customer-specific pricing rules
-        if (customer.IsPremium)
-        {
-            basePrice = basePrice * 0.9m; // 10% discount
-        }
-        
-        if (customer.IsVip)
-        {
-            basePrice = basePrice * 0.85m; // Additional 15% discount (25% total)
-        }
-        
-        return basePrice;
-    }
-}
 ```
 
 ## 🎯 Best Practices
 
-### Domain Entity Design Best Practices
+### Entity Design Guidelines
+
+Follow these guidelines when designing your entities:
 
 ```csharp
-// ✅ Well-Designed Aggregate Root
-public class ProductAggregate : AggregateRoot<Guid>
+// ✅ Good: Well-designed entity
+public class Product : BaseAuditableEntity<int>, ISoftDelete
 {
-    private readonly List<ProductVariant> _variants = new();
-    private readonly List<ProductReview> _reviews = new();
-    
-    // Private constructor for EF
-    private ProductAggregate() { }
-    
-    // Constructor for domain logic
-    private ProductAggregate(Guid id) : base(id) { }
-    
-    // Properties with proper encapsulation
+    // Private setters for business logic enforcement
     public string Name { get; private set; } = string.Empty;
-    public Money Price { get; private set; } = Money.Zero;
-    public ProductStatus Status { get; private set; } = ProductStatus.Draft;
-    public DateTime? PublishedAt { get; private set; }
+    public decimal Price { get; private set; }
     
-    // Read-only collections
-    public IReadOnlyCollection<ProductVariant> Variants => _variants.AsReadOnly();
-    public IReadOnlyCollection<ProductReview> Reviews => _reviews.AsReadOnly();
+    // Public properties for simple data
+    public string Description { get; set; } = string.Empty;
     
-    // Factory method enforcing invariants
-    public static ProductAggregate Create(string name, Money price, ProductCategory category)
+    // Soft delete properties (automatic)
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAt { get; set; }
+    public string? DeletedBy { get; set; }
+    
+    // Factory method for creation
+    public static Product Create(string name, decimal price)
     {
-        DomainGuard.AgainstNullOrWhiteSpace(name, nameof(name));
-        DomainGuard.AgainstNull(price, nameof(price));
-        DomainGuard.AgainstNegativeOrZero(price.Amount, nameof(price));
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Name cannot be empty", nameof(name));
+        if (price <= 0)
+            throw new ArgumentException("Price must be positive", nameof(price));
         
-        var product = new ProductAggregate(Guid.CreateVersion7())
-        {
-            Name = name,
-            Price = price,
-            Status = ProductStatus.Draft
-        };
+        var product = new Product();
+        product.SetName(name);
+        product.SetPrice(price);
         
         // Raise domain event
-        product.RaiseDomainEvent(new ProductCreatedEvent(product.Id, name, price.Amount));
+        product.AddDomainEvent(new ProductCreatedEvent(product.Id, name, price));
         
         return product;
     }
     
-    // Business methods with validation and events
-    public void UpdatePrice(Money newPrice)
+    // Business methods with validation
+    public void SetName(string name)
     {
-        DomainGuard.AgainstNull(newPrice, nameof(newPrice));
-        DomainGuard.AgainstNegativeOrZero(newPrice.Amount, nameof(newPrice));
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Name cannot be empty", nameof(name));
+        
+        Name = name;
+    }
+    
+    public void SetPrice(decimal price)
+    {
+        if (price <= 0)
+            throw new ArgumentException("Price must be positive", nameof(price));
         
         var oldPrice = Price;
-        Price = newPrice;
+        Price = price;
         
-        RaiseDomainEvent(new ProductPriceChangedEvent(Id, oldPrice.Amount, newPrice.Amount));
-    }
-    
-    public void Publish()
-    {
-        CheckRule(new ProductMustHaveValidPriceRule(Price));
-        CheckRule(new ProductMustHaveDescriptionRule(Description));
-        CheckRule(new ProductMustHaveVariantsRule(_variants));
-        
-        Status = ProductStatus.Published;
-        PublishedAt = DateTime.UtcNow;
-        IncrementVersion();
-        
-        RaiseDomainEvent(new ProductPublishedEvent(Id, Name));
-    }
-    
-    public void AddVariant(string name, Money additionalPrice)
-    {
-        DomainGuard.AgainstNullOrWhiteSpace(name, nameof(name));
-        DomainGuard.AgainstNull(additionalPrice, nameof(additionalPrice));
-        
-        CheckRule(new ProductVariantNameMustBeUniqueRule(_variants, name));
-        
-        var variant = new ProductVariant(name, additionalPrice);
-        _variants.Add(variant);
-        
-        RaiseDomainEvent(new ProductVariantAddedEvent(Id, variant.Id, name));
+        if (oldPrice != price)
+        {
+            AddDomainEvent(new ProductPriceChangedEvent(Id, oldPrice, price));
+        }
     }
 }
 ```
 
-### Service Layer Best Practices
+### Service Layer Patterns
+
+Implement clean service layer patterns:
 
 ```csharp
-// ✅ Application Service with Proper Error Handling
+// ✅ Good: Service with proper separation of concerns
 public class ProductApplicationService
 {
-    private readonly IDomainUnitOfWork _domainUnitOfWork;
-    private readonly IDomainRepository<ProductAggregate, Guid> _productRepository;
-    private readonly IMapper _mapper;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<ProductApplicationService> _logger;
     
     public ProductApplicationService(
-        IDomainUnitOfWork domainUnitOfWork,
-        IDomainRepository<ProductAggregate, Guid> productRepository,
-        IMapper mapper,
+        IUnitOfWork unitOfWork, 
         ILogger<ProductApplicationService> logger)
     {
-        _domainUnitOfWork = domainUnitOfWork;
-        _productRepository = productRepository;
-        _mapper = mapper;
+        _unitOfWork = unitOfWork;
         _logger = logger;
     }
     
     public async Task<ProductDto> CreateProductAsync(CreateProductCommand command)
     {
+        // Input validation
+        if (string.IsNullOrWhiteSpace(command.Name))
+            throw new ArgumentException("Product name is required");
+        
+        var repository = _unitOfWork.GetRepository<Product, int>();
+        
+        // Business logic
+        var product = Product.Create(command.Name, command.Price);
+        
+        // Persistence
+        await repository.AddAsync(product);
+        await _unitOfWork.SaveChangesAsync(); // Domain events dispatched here
+        
+        _logger.LogInformation("Created product {ProductId}: {ProductName}", 
+            product.Id, product.Name);
+        
+        // Return DTO
+        return new ProductDto(product.Id, product.Name, product.Price);
+    }
+}
+```
+
+### Error Handling Best Practices
+
+Implement comprehensive error handling:
+
+```csharp
+public class ProductService
+{
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly ILogger<ProductService> _logger;
+    
+    public async Task<Product> UpdateProductAsync(int id, UpdateProductRequest request)
+    {
         try
         {
-            await _domainUnitOfWork.BeginTransactionAsync();
+            var repository = _unitOfWork.GetRepository<Product, int>();
+            var product = await repository.GetByIdAsync(id);
             
-            // Check business rules at application level
-            if (await _productRepository.ExistsWithNameAsync(command.Name))
+            if (product == null)
             {
-                throw new BusinessRuleViolationException(
-                    new ProductNameMustBeUniqueRule(command.Name));
+                throw new ProductNotFoundException($"Product with ID {id} was not found");
             }
             
-            // Create aggregate using domain factory
-            var product = ProductAggregate.Create(
-                command.Name,
-                Money.FromDecimal(command.Price),
-                command.Category);
+            // Update with business logic
+            product.SetName(request.Name);
+            product.SetPrice(request.Price);
             
-            // Register for domain events
-            _domainUnitOfWork.RegisterAggregate(product);
+            await repository.UpdateAsync(product);
+            await _unitOfWork.SaveChangesAsync();
             
-            // Save
-            await _productRepository.AddAsync(product);
-            await _domainUnitOfWork.SaveChangesAsync();
-            
-            await _domainUnitOfWork.CommitTransactionAsync();
-            
-            _logger.LogInformation("Product created successfully: {ProductId}", product.Id);
-            
-            return _mapper.Map<ProductDto>(product);
+            return product;
         }
-        catch (BusinessRuleValidationException ex)
+        catch (ProductNotFoundException)
         {
-            await _domainUnitOfWork.RollbackTransactionAsync();
-            _logger.LogWarning("Business rule violation while creating product: {Rule}", ex.BrokenRule.Message);
-            throw;
+            _logger.LogWarning("Attempted to update non-existent product {ProductId}", id);
+            throw; // Re-throw domain exceptions
         }
         catch (Exception ex)
         {
-            await _domainUnitOfWork.RollbackTransactionAsync();
-            _logger.LogError(ex, "Error creating product: {ProductName}", command.Name);
-            throw;
+            _logger.LogError(ex, "Error updating product {ProductId}", id);
+            throw new ProductUpdateException($"Failed to update product {id}", ex);
         }
     }
+}
+
+// Custom exception classes
+public class ProductNotFoundException : Exception
+{
+    public ProductNotFoundException(string message) : base(message) { }
+}
+
+public class ProductUpdateException : Exception
+{
+    public ProductUpdateException(string message, Exception innerException) 
+        : base(message, innerException) { }
 }
 ```
 
 ## 🔧 Troubleshooting
 
-### Common DDD Issues and Solutions
+### Common Issues and Solutions
 
-#### 1. Domain Events Not Being Dispatched
+#### Issue: Domain Events Not Being Dispatched
+
+**Problem:** Domain events are not being handled even though handlers are registered.
+
+**Solution:** Ensure you're using the domain unit of work or have properly configured event dispatching:
 
 ```csharp
-// ❌ Problem: Events not dispatched
-public class OrderService
-{
-    public async Task CreateOrderAsync(CreateOrderCommand command)
-    {
-        var order = OrderAggregate.Create(command.CustomerId);
-        await _repository.AddAsync(order);
-        await _unitOfWork.SaveChangesAsync(); // Events not dispatched
-    }
-}
+// ❌ Wrong: Using regular SaveChanges
+await _unitOfWork.SaveChangesAsync(); // Events might not be dispatched
 
-// ✅ Solution: Use Domain Unit of Work
-public class OrderService
-{
-    public async Task CreateOrderAsync(CreateOrderCommand command)
-    {
-        var order = OrderAggregate.Create(command.CustomerId);
-        
-        // Register aggregate for event publishing
-        _domainUnitOfWork.RegisterAggregate(order);
-        
-        await _repository.AddAsync(order);
-        await _domainUnitOfWork.SaveChangesAsync(); // Events dispatched automatically
-    }
-}
+// ✅ Correct: Ensure domain events are configured
+services.AddFSEntityFramework<ApplicationDbContext>()
+    .WithDomainEvents()
+        .UsingDefaultDispatcher()
+        .WithAutoHandlerDiscovery()
+    .Complete()
+    .Build();
 ```
 
-#### 2. Aggregate Root Version Conflicts
+#### Issue: Soft Delete Not Working
+
+**Problem:** Entities are being hard deleted instead of soft deleted.
+
+**Solution:** Ensure entity implements `ISoftDelete` and soft delete is configured:
 
 ```csharp
-// ✅ Handle optimistic concurrency
-public async Task UpdateProductAsync(UpdateProductCommand command)
+// ✅ Entity must implement ISoftDelete
+public class Product : BaseAuditableEntity<int>, ISoftDelete
 {
-    try
-    {
-        var product = await _productRepository.GetByIdRequiredAsync(command.ProductId);
-        
-        // Check version for optimistic concurrency
-        if (product.Version != command.ExpectedVersion)
-        {
-            throw new ConcurrencyException("Product has been modified by another process");
-        }
-        
-        product.UpdateDetails(command.Name, command.Description);
-        
-        await _domainUnitOfWork.SaveChangesAsync();
-    }
-    catch (DbUpdateConcurrencyException)
-    {
-        throw new ConcurrencyException("Product has been modified by another process");
-    }
+    // ISoftDelete properties
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAt { get; set; }
+    public string? DeletedBy { get; set; }
 }
+
+// ✅ Configure soft delete
+services.AddFSEntityFramework<ApplicationDbContext>()
+    .WithSoftDelete()
+    .Build();
 ```
 
-### Performance Optimization for DDD
+#### Issue: Audit Properties Not Being Set
+
+**Problem:** `CreatedAt`, `CreatedBy`, etc., are not being populated automatically.
+
+**Solution:** Ensure audit configuration is properly set up:
 
 ```csharp
-// ✅ Optimized Repository with Specifications
-public class OptimizedProductRepository : DomainRepository<ProductAggregate, Guid>
+// ✅ Configure audit with user provider
+services.AddFSEntityFramework<ApplicationDbContext>()
+    .WithAudit()
+        .UsingHttpContext() // or another user provider
+    .Build();
+```
+
+#### Issue: Repository Not Found
+
+**Problem:** `InvalidOperationException` when trying to get a repository.
+
+**Solution:** Ensure your DbContext is properly registered before adding FS.EntityFramework:
+
+```csharp
+// ✅ Register DbContext first
+services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlServer(connectionString));
+
+// ✅ Then add FS.EntityFramework
+services.AddFSEntityFramework<ApplicationDbContext>()
+    .Build();
+```
+
+### Performance Optimization Tips
+
+#### Use Projections for Read-Only Data
+
+```csharp
+// ✅ Use projections for better performance
+public async Task<IEnumerable<ProductSummaryDto>> GetProductSummariesAsync()
 {
-    public OptimizedProductRepository(IRepository<ProductAggregate, Guid> efRepository) 
-        : base(efRepository)
-    {
-    }
+    var repository = _unitOfWork.GetRepository<Product, int>();
     
-    public async Task<IEnumerable<ProductAggregate>> GetTopProductsAsync(int count)
-    {
-        // Use projection for better performance
-        return await _efRepository.GetQueryable()
-            .Where(p => p.Status == ProductStatus.Published)
-            .OrderByDescending(p => p.SalesCount)
-            .Take(count)
-            .Include(p => p.Category) // Only include what's needed
-            .AsNoTracking() // Disable tracking for read-only operations
-            .ToListAsync();
-    }
+    return await repository.GetQueryable()
+        .Select(p => new ProductSummaryDto
+        {
+            Id = p.Id,
+            Name = p.Name,
+            Price = p.Price
+        })
+        .ToListAsync();
 }
 ```
 
-## 📖 API Reference
+#### Disable Tracking for Read-Only Operations
 
-### Domain-Driven Design Interfaces
-
-#### IAggregateRoot
 ```csharp
-public interface IAggregateRoot
-{
-    IReadOnlyCollection<IDomainEvent> DomainEvents { get; }
-    void ClearDomainEvents();
-    long Version { get; }
-}
+// ✅ Disable tracking for read-only queries
+var products = await repository.GetQueryable(disableTracking: true)
+    .Where(p => p.Price > 100)
+    .ToListAsync();
 ```
 
-#### IDomainRepository<TAggregate, TKey>
-```csharp
-public interface IDomainRepository<TAggregate, in TKey>
-    where TAggregate : AggregateRoot<TKey>
-    where TKey : IEquatable<TKey>
-{
-    Task<TAggregate?> GetByIdAsync(TKey id, CancellationToken cancellationToken = default);
-    Task<TAggregate> GetByIdRequiredAsync(TKey id, CancellationToken cancellationToken = default);
-    Task AddAsync(TAggregate aggregate, CancellationToken cancellationToken = default);
-    Task UpdateAsync(TAggregate aggregate, CancellationToken cancellationToken = default);
-    Task RemoveAsync(TAggregate aggregate, CancellationToken cancellationToken = default);
-    Task<IEnumerable<TAggregate>> FindAsync(ISpecification<TAggregate> specification, CancellationToken cancellationToken = default);
-    Task<bool> AnyAsync(ISpecification<TAggregate> specification, CancellationToken cancellationToken = default);
-    Task<int> CountAsync(ISpecification<TAggregate> specification, CancellationToken cancellationToken = default);
-}
-```
-
-#### IDomainUnitOfWork
-```csharp
-public interface IDomainUnitOfWork : IDisposable
-{
-    Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
-    Task BeginTransactionAsync(CancellationToken cancellationToken = default);
-    Task CommitTransactionAsync(CancellationToken cancellationToken = default);
-    Task RollbackTransactionAsync(CancellationToken cancellationToken = default);
-    void RegisterAggregate(IAggregateRoot aggregate);
-}
-```
-
-#### IBusinessRule
-```csharp
-public interface IBusinessRule
-{
-    bool IsBroken();
-    string Message { get; }
-    string ErrorCode { get; }
-}
-```
-
-#### ISpecification<T>
-```csharp
-public interface ISpecification<T>
-{
-    bool IsSatisfiedBy(T candidate);
-    Expression<Func<T, bool>> ToExpression();
-    ISpecification<T> And(ISpecification<T> other);
-    ISpecification<T> Or(ISpecification<T> other);
-    ISpecification<T> Not();
-}
-```
-
-### Enhanced Configuration Interfaces
-
-#### IDomainConfigurationBuilder
-```csharp
-public interface IDomainConfigurationBuilder
-{
-    IFSEntityFrameworkBuilder Builder { get; }
-    IDomainConfigurationBuilder WithAutoRepositoryDiscovery();
-    IDomainConfigurationBuilder WithAutoRepositoryDiscovery(Assembly assembly);
-    IDomainConfigurationBuilder WithRepository<TAggregate, TKey>() where TAggregate : AggregateRoot<TKey> where TKey : IEquatable<TKey>;
-    IDomainConfigurationBuilder WithCustomRepository<TAggregate, TKey, TRepository>() where TRepository : class, IDomainRepository<TAggregate, TKey>;
-    IDomainConfigurationBuilder WithDomainValidation();
-    IFSEntityFrameworkBuilder Complete();
-}
-```
-
-### Domain Extension Methods
+#### Use Bulk Operations for Large Data Sets
 
 ```csharp
-// ✅ DomainGuard Extensions
-public static class DomainGuard
-{
-    public static void Against(IBusinessRule rule);
-    public static void Against(bool condition, string message, string? errorCode = null);
-    public static void AgainstNull<T>(T? value, string parameterName) where T : class;
-    public static void AgainstNullOrWhiteSpace(string? value, string parameterName);
-    public static void AgainstNegative(decimal value, string parameterName);
-    public static void AgainstNegativeOrZero(decimal value, string parameterName);
-    public static void AgainstOutOfRange<T>(T value, T min, T max, string parameterName) where T : IComparable<T>;
-}
+// ✅ Use bulk operations for better performance
+await repository.BulkInsertAsync(products, saveChanges: true);
 ```
 
 ## 🤝 Contributing
 
 We welcome contributions! This project is open source and benefits from community involvement.
 
-### Areas for Contribution - DDD Edition
+### Areas for Contribution
 
 - 🏛️ **Enhanced DDD patterns** (Saga patterns, Event Sourcing support)
 - 🔌 **Additional domain event dispatchers** (Mass Transit, NServiceBus, etc.)
 - ⚡ **Performance optimizations** for aggregate loading and persistence
 - 📋 **Advanced specification implementations**
-- 📚 **DDD documentation and examples**
-- 🧪 **DDD test coverage improvements**
+- 📚 **Documentation and examples**
+- 🧪 **Test coverage improvements**
 - 🔑 **New ID generation strategies**
 - 🎯 **Domain modeling tools and utilities**
 
