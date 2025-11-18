@@ -1,13 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net9.0</TargetFramework>
+        <TargetFramework>net10.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
 
         <!-- NuGet Package Metadata -->
         <PackageId>FS.EntityFramework.Library.UlidGenerator</PackageId>
-        <Version>9.0.7</Version>
+        <Version>10.0.0</Version>
         <Authors>Furkan SARIKAYA</Authors>
         <Company>Furkan SARIKAYA</Company>
         <Product>FS EntityFramework Library - ULID Extension</Product>
@@ -103,12 +103,12 @@
 
     <!-- Release Mode: Use PackageReference for proper NuGet dependency -->
     <ItemGroup Condition="'$(Configuration)' == 'Release' AND '$(UseProjectReferences)' != 'true'">
-        <PackageReference Include="FS.EntityFramework.Library" Version="9.0.7" />
+        <PackageReference Include="FS.EntityFramework.Library" Version="10.0.0" />
     </ItemGroup>
 
     <!-- ULID Library Dependency -->
     <ItemGroup>
-        <PackageReference Include="Ulid" Version="1.3.4" />
+        <PackageReference Include="Ulid" Version="1.4.1" />
     </ItemGroup>
 
     <ItemGroup>
