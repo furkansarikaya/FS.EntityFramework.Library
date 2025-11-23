@@ -10,6 +10,16 @@ namespace FS.EntityFramework.Library.Domain;
 public interface ISpecification<T>
 {
     /// <summary>
+    /// Gets the collection of include expressions for eager loading related entities
+    /// </summary>
+    IReadOnlyList<Expression<Func<T, object>>> Includes { get; }
+
+    /// <summary>
+    /// Gets the collection of include strings for eager loading related entities using string-based navigation
+    /// </summary>
+    IReadOnlyList<string> IncludeStrings { get; }
+    
+    /// <summary>
     /// Determines whether the candidate satisfies this specification
     /// </summary>
     /// <param name="candidate">The candidate to evaluate</param>

@@ -1,5 +1,6 @@
 using FS.EntityFramework.Library.Common;
 using FS.EntityFramework.Library.UnitOfWorks;
+using Microsoft.EntityFrameworkCore;
 
 namespace FS.EntityFramework.Library.Infrastructure;
 
@@ -96,16 +97,33 @@ public class DomainRepository<TAggregate, TKey> : Domain.IDomainRepository<TAggr
     }
 
     /// <summary>
-    /// Finds aggregates that satisfy the given specification
+    /// Finds aggregates that satisfy the given specification with eager loading support.
+    /// Automatically applies all includes defined in the specification.
     /// </summary>
     /// <param name="specification">The specification to apply</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Collection of aggregates matching the specification</returns>
     public async Task<IEnumerable<TAggregate>> FindAsync(Domain.ISpecification<TAggregate> specification, CancellationToken cancellationToken = default)
     {
+        
         var query = _efRepository.GetQueryable();
-        var filteredQuery = query.Where(specification.ToExpression());
-        return await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(filteredQuery, cancellationToken);
+        
+        // Apply the specification predicate
+        query = query.Where(specification.ToExpression());
+        
+        // Apply expression-based includes
+        foreach (var include in specification.Includes)
+        {
+            query = query.Include(include);
+        }
+        
+        // Apply string-based includes
+        foreach (var includeString in specification.IncludeStrings)
+        {
+            query = query.Include(includeString);
+        }
+        
+        return await query.ToListAsync(cancellationToken);
     }
 
     /// <summary>
