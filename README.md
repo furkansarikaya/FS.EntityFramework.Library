@@ -636,7 +636,8 @@ public class OrderAggregate : AggregateRoot<Guid>
     {
         DomainGuard.AgainstNullOrWhiteSpace(orderNumber, nameof(orderNumber));
         
-        var order = new OrderAggregate(Guid.CreateVersion7())
+        // AggregateRoot base class automatically generates Guid.CreateVersion7() in default constructor
+        var order = new OrderAggregate
         {
             OrderNumber = orderNumber,
             OrderDate = DateTime.UtcNow,
@@ -968,6 +969,258 @@ public class PremiumProductsSpecification : DomainSpecification<Product>
                          !product.IsDeleted;
     }
 }
+```
+
+### Advanced Specification Features
+
+The `DomainSpecification<T>` class provides powerful features for building complex queries:
+
+#### 1. Pagination Support
+
+```csharp
+public class PagedProductsSpecification : DomainSpecification<Product>
+{
+    public PagedProductsSpecification(int pageIndex, int pageSize)
+    {
+        // 0-based pagination
+        ApplyPagingByIndex(pageIndex, pageSize);
+        AddOrderBy(p => p.Name);
+    }
+    
+    public override bool IsSatisfiedBy(Product candidate) => true;
+    
+    public override Expression<Func<Product, bool>> ToExpression()
+    {
+        return product => !product.IsDeleted;
+    }
+}
+
+// Alternative: Skip/Take based pagination
+public class OffsetProductsSpecification : DomainSpecification<Product>
+{
+    public OffsetProductsSpecification(int skip, int take)
+    {
+        ApplyPagingBySkipAndTake(skip, take);
+    }
+    
+    public override bool IsSatisfiedBy(Product candidate) => true;
+    public override Expression<Func<Product, bool>> ToExpression() => p => true;
+}
+```
+
+#### 2. Sorting and Ordering
+
+```csharp
+public class SortedProductsSpecification : DomainSpecification<Product>
+{
+    public SortedProductsSpecification()
+    {
+        // Multiple order expressions applied in sequence
+        AddOrderByDescending(p => p.CreatedAt);  // Primary sort
+        AddOrderBy(p => p.Name);                  // Secondary sort (ThenBy)
+        AddOrderBy(p => p.Price);                 // Tertiary sort
+    }
+    
+    public override bool IsSatisfiedBy(Product candidate) => true;
+    public override Expression<Func<Product, bool>> ToExpression() => p => !p.IsDeleted;
+}
+```
+
+#### 3. Text Search Across Properties
+
+```csharp
+public class ProductSearchSpecification : DomainSpecification<Product>
+{
+    public ProductSearchSpecification(string searchTerm)
+    {
+        // Search across multiple properties (case-insensitive Contains)
+        ApplySearch(searchTerm, 
+            p => p.Name, 
+            p => p.Description, 
+            p => p.Brand,
+            p => p.Category.Name);
+        
+        AsNoTracking(); // Read-only query optimization
+    }
+    
+    public override bool IsSatisfiedBy(Product candidate)
+    {
+        return !candidate.IsDeleted;
+    }
+    
+    public override Expression<Func<Product, bool>> ToExpression()
+    {
+        return product => !product.IsDeleted;
+    }
+}
+```
+
+#### 4. Eager Loading with Includes
+
+```csharp
+public class ProductWithRelationsSpecification : DomainSpecification<Product>
+{
+    public ProductWithRelationsSpecification()
+    {
+        // Expression-based includes
+        AddInclude(p => p.Category);
+        AddInclude(p => p.Supplier);
+        
+        // String-based includes for nested properties
+        AddInclude("Reviews.User");
+        AddInclude("OrderItems.Order");
+        
+        // Multiple includes at once
+        AddIncludes(
+            p => p.Images,
+            p => p.Tags,
+            p => p.Variants
+        );
+        
+        // Prevent Cartesian explosion with split queries
+        EnableSplitQuery();
+    }
+    
+    public override bool IsSatisfiedBy(Product candidate) => true;
+    public override Expression<Func<Product, bool>> ToExpression() => p => !p.IsDeleted;
+}
+```
+
+#### 5. Query Filters and Tracking Control
+
+```csharp
+public class AllProductsIncludingDeletedSpecification : DomainSpecification<Product>
+{
+    public AllProductsIncludingDeletedSpecification()
+    {
+        // Ignore global query filters (e.g., soft delete filter)
+        ApplyIgnoreQueryFilters();
+        
+        // Enable tracking for updates
+        EnableTracking();
+    }
+    
+    public override bool IsSatisfiedBy(Product candidate) => true;
+    public override Expression<Func<Product, bool>> ToExpression() => p => true;
+}
+```
+
+#### 6. Grouping for Aggregations
+
+```csharp
+public class ProductsByCategorySpecification : DomainSpecification<Product>
+{
+    public ProductsByCategorySpecification()
+    {
+        ApplyGroupBy(p => p.CategoryId);
+        AddOrderBy(p => p.CategoryId);
+    }
+    
+    public override bool IsSatisfiedBy(Product candidate) => !candidate.IsDeleted;
+    public override Expression<Func<Product, bool>> ToExpression() => p => !p.IsDeleted;
+}
+```
+
+#### 7. Complex Real-World Example
+
+```csharp
+public class AdvancedProductSearchSpecification : DomainSpecification<Product>
+{
+    public AdvancedProductSearchSpecification(
+        string? searchTerm = null,
+        decimal? minPrice = null,
+        decimal? maxPrice = null,
+        int? categoryId = null,
+        int pageIndex = 0,
+        int pageSize = 20,
+        bool includeDeleted = false)
+    {
+        // Text search if provided
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            ApplySearch(searchTerm, p => p.Name, p => p.Description);
+        }
+        
+        // Eager load relations
+        AddIncludes(
+            p => p.Category,
+            p => p.Supplier,
+            p => p.Reviews
+        );
+        
+        // Use split query for multiple collections
+        EnableSplitQuery();
+        
+        // Sorting
+        AddOrderByDescending(p => p.CreatedAt);
+        AddOrderBy(p => p.Name);
+        
+        // Pagination
+        ApplyPagingByIndex(pageIndex, pageSize);
+        
+        // Include soft-deleted if requested
+        if (includeDeleted)
+        {
+            ApplyIgnoreQueryFilters();
+        }
+        
+        // Read-only optimization
+        AsNoTracking();
+    }
+    
+    public override bool IsSatisfiedBy(Product candidate)
+    {
+        return !candidate.IsDeleted;
+    }
+    
+    public override Expression<Func<Product, bool>> ToExpression()
+    {
+        return product => !product.IsDeleted;
+    }
+}
+
+// Usage in repository
+public class ProductService
+{
+    private readonly IDomainRepository<Product, int> _repository;
+    
+    public async Task<IEnumerable<Product>> SearchProductsAsync(
+        string searchTerm, 
+        int page, 
+        int pageSize)
+    {
+        var specification = new AdvancedProductSearchSpecification(
+            searchTerm: searchTerm,
+            minPrice: 10,
+            maxPrice: 1000,
+            pageIndex: page,
+            pageSize: pageSize
+        );
+        
+        return await _repository.FindAllAsync(specification);
+    }
+}
+```
+
+#### Specification Composition Summary
+
+**Available Methods:**
+- `ApplyPagingByIndex(pageIndex, pageSize)` - 0-based page pagination
+- `ApplyPagingBySkipAndTake(skip, take)` - Offset-based pagination
+- `AddOrderBy(expression)` - Ascending sort
+- `AddOrderByDescending(expression)` - Descending sort
+- `ApplySearch(term, properties...)` - Text search across properties
+- `AddInclude(expression)` - Eager load navigation property
+- `AddInclude(string)` - String-based include for nested properties
+- `AddIncludes(expressions...)` - Multiple includes at once
+- `ApplyIgnoreQueryFilters()` - Bypass global filters
+- `ApplyGroupBy(expression)` - Group results
+- `EnableSplitQuery()` - Prevent Cartesian explosion
+- `AsNoTracking()` - Disable change tracking (default)
+- `EnableTracking()` - Enable change tracking
+- `And(spec)`, `Or(spec)`, `Not()` - Logical combinations
+
+```
 ```
 
 ## 📊 Advanced Features

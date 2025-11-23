@@ -7,7 +7,7 @@
 
         <!-- NuGet Package Metadata -->
         <PackageId>FS.EntityFramework.Library</PackageId>
-        <Version>10.0.0</Version>
+        <Version>10.0.0.1</Version>
         <Authors>Furkan SARIKAYA</Authors>
         <Company>Furkan SARIKAYA</Company>
         <Product>FS EntityFramework Library</Product>
@@ -19,54 +19,41 @@
         <RepositoryUrl>https://github.com/furkansarikaya/FS.EntityFramework.Library</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageReleaseNotes>
-            Version 9.0.7 - Production-Ready Enterprise DDD Implementation
+            Version 10.0.0.1 - Enhanced Domain Specifications and Documentation
 
-            🎯 ENTERPRISE-GRADE ENHANCEMENTS:
-            - 🏛️ Complete Domain-Driven Design (DDD) implementation with Aggregate Roots, Value Objects, and Business Rules
-            - 🛡️ Production-ready robust interceptor system with multi-strategy validation
-            - 🔧 Enhanced repository caching with collision prevention for enterprise environments
-            - 🌍 Culture-safe parsing for international applications (decimal, date formats)
-            - ⚡ Optimized nullable type detection for ID generation systems
-            - 🎭 Advanced domain events with explicit configuration validation
-            - 📊 Comprehensive audit tracking with multiple user context providers
+            🚀 NEW FEATURES:
+            - Enhanced DomainSpecification&lt;T&gt; with comprehensive fluent API
+            - ApplyPagingByIndex and ApplyPagingBySkipAndTake for flexible pagination
+            - AddOrderBy and AddOrderByDescending for multi-level sorting
+            - ApplySearch for text-based searching across multiple properties
+            - ApplyGroupBy for aggregation scenarios
+            - ApplyIgnoreQueryFilters to bypass global query filters
+            - EnableSplitQuery to prevent Cartesian explosion
+            - Multiple include methods (AddInclude, AddIncludes) for eager loading
+            - AsNoTracking and EnableTracking for performance control
 
-            🚀 NEW DDD FEATURES:
-            - AggregateRoot&lt;T&gt; base class with version control and domain event management
-            - ValueObject base class with proper equality semantics
-            - BusinessRule validation framework with domain guard utilities
-            - Domain specifications with composable query logic
-            - Domain repositories with specification pattern support
-            - Domain unit of work with automatic event publishing
-            - Enhanced auto-discovery for complex inheritance hierarchies
+            📚 DOCUMENTATION IMPROVEMENTS:
+            - Comprehensive specification pattern examples with real-world scenarios
+            - Detailed fluent API usage documentation
+            - Fixed AggregateRoot constructor usage examples
+            - Added 7 categories of specification examples (pagination, sorting, search, includes, filters, grouping, complex scenarios)
+            - Complete method reference for all specification features
 
-            🔧 CRITICAL BUG FIXES:
-            - Fixed repository caching collision where different entities with same key type shared instances
-            - Resolved soft delete bypass mechanism for bulk operations
-            - Enhanced nullable type detection in ID generation interceptor
-            - Eliminated silent failures in DbContext interceptor registration
-            - Improved culture-insensitive parsing for international number formats
-            - Removed meaningless dummy object creation in FSDbContext
+            🔧 BUG FIXES:
+            - Corrected README examples for AggregateRoot instantiation
+            - Fixed documentation inconsistencies
 
-            🎨 DEVELOPER EXPERIENCE:
-            - Explicit configuration validation with meaningful error messages
-            - Enhanced fluent API with better user guidance and validation
-            - Production-grade error handling with actionable guidance
-            - Comprehensive documentation and example patterns
-            - Zero breaking changes - fully backward compatible
+            ⚡ ENHANCEMENTS:
+            - Improved specification composition with And, Or, Not operators
+            - Better support for complex query building
+            - Enhanced performance with tracking control options
 
-            🏭 PRODUCTION READINESS:
-            - Multi-strategy interceptor validation with majority voting system
-            - Robust fallback mechanisms for various DbContext registration patterns
-            - Thread-safe repository caching with composite key strategy
-            - Enhanced exception handling with detailed diagnostic information
-            - Comprehensive validation layers for critical functionality
+            This patch release focuses on expanding the specification pattern capabilities
+            and providing comprehensive documentation for all features. All existing
+            functionality remains fully backward compatible.
 
-            This version represents a major maturity milestone, transforming the library from
-            a development tool into an enterprise-grade, production-ready DDD framework
-            suitable for large-scale, mission-critical applications.
-
-            Perfect for: Enterprise applications, Domain-rich systems, Microservices,
-            Event-driven architectures, Multi-tenant applications, International platforms
+            Perfect for: Complex query scenarios, Advanced filtering, Performance optimization,
+            Domain-rich applications, Enterprise search functionality
         </PackageReleaseNotes>
 
         <!-- Documentation -->
