@@ -20,6 +20,56 @@ public interface ISpecification<T>
     IReadOnlyList<string> IncludeStrings { get; }
     
     /// <summary>
+    /// Gets the collection of ordering expressions with their direction
+    /// </summary>
+    IReadOnlyList<(Expression<Func<T, object>> KeySelector, bool Ascending)> OrderExpressions { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether change tracking should be disabled
+    /// </summary>
+    bool DisableTracking { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether pagination is enabled
+    /// </summary>
+    bool IsPagingEnabled { get; }
+
+    /// <summary>
+    /// Gets the number of items to skip
+    /// </summary>
+    int Skip { get; }
+
+    /// <summary>
+    /// Gets the number of items to take
+    /// </summary>
+    int Take { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether query filters should be ignored
+    /// </summary>
+    bool IgnoreQueryFilters { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether split query should be used
+    /// </summary>
+    bool AsSplitQuery { get; }
+
+    /// <summary>
+    /// Gets the grouping expression
+    /// </summary>
+    Expression<Func<T, object>>? GroupBy { get; }
+
+    /// <summary>
+    /// Gets the search term for text-based searching
+    /// </summary>
+    string? SearchTerm { get; }
+
+    /// <summary>
+    /// Gets the collection of properties to search
+    /// </summary>
+    IReadOnlyList<Expression<Func<T, object>>>? SearchProperties { get; }
+    
+    /// <summary>
     /// Determines whether the candidate satisfies this specification
     /// </summary>
     /// <param name="candidate">The candidate to evaluate</param>

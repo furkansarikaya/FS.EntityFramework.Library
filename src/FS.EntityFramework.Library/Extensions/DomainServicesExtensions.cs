@@ -1,11 +1,12 @@
 using FS.EntityFramework.Library.Common;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace FS.EntityFramework.Library.Extensions;
 
 /// <summary>
 /// Extension methods for configuring Domain-Driven Design services
-/// Enhanced with robust inheritance detection
+/// Enhanced with robust inheritance detection and DbContext support
 /// </summary>
 public static class DomainServicesExtensions
 {
@@ -39,7 +40,12 @@ public static class DomainServicesExtensions
     {
         services.Add(new ServiceDescriptor(
             typeof(Domain.IDomainRepository<TAggregate, TKey>),
-            typeof(Infrastructure.DomainRepository<TAggregate, TKey>),
+            serviceProvider =>
+            {
+                var unitOfWork = serviceProvider.GetRequiredService<UnitOfWorks.IUnitOfWork>();
+                var context = serviceProvider.GetRequiredService<DbContext>();
+                return new Infrastructure.DomainRepository<TAggregate, TKey>(unitOfWork, context);
+            },
             serviceLifetime));
 
         return services;
@@ -95,7 +101,15 @@ public static class DomainServicesExtensions
             var repositoryInterfaceType = typeof(Domain.IDomainRepository<,>).MakeGenericType(aggregateType, keyType);
             var repositoryImplementationType = typeof(Infrastructure.DomainRepository<,>).MakeGenericType(aggregateType, keyType);
 
-            services.Add(new ServiceDescriptor(repositoryInterfaceType, repositoryImplementationType, serviceLifetime));
+            services.Add(new ServiceDescriptor(
+                repositoryInterfaceType,
+                serviceProvider =>
+                {
+                    var unitOfWork = serviceProvider.GetRequiredService<UnitOfWorks.IUnitOfWork>();
+                    var context = serviceProvider.GetRequiredService<DbContext>();
+                    return Activator.CreateInstance(repositoryImplementationType, unitOfWork, context)!;
+                },
+                serviceLifetime));
         }
 
         return services;
@@ -129,41 +143,28 @@ public static class DomainServicesExtensions
 
     /// <summary>
     /// ENHANCED: Determines if a type is an aggregate root with robust inheritance detection
-    /// This method now properly handles complex inheritance hierarchies including:
-    /// - Direct inheritance: MyAggregate : AggregateRoot<Guid>
-    /// - Intermediate inheritance: MyAggregate : BaseAggregate : AggregateRoot<Guid>
-    /// - Multiple levels: SpecificAggregate : IntermediateAggregate : BaseAggregate : AggregateRoot<Guid>
     /// </summary>
-    /// <param name="type">The type to check</param>
-    /// <returns>True if the type is or inherits from an aggregate root; otherwise false</returns>
     private static bool IsAggregateRootEnhanced(Type type)
     {
-        // Start with the type itself and walk up the inheritance chain
         var current = type;
         
         while (current != null)
         {
-            // Check if current type directly inherits from AggregateRoot<T>
             if (current.IsGenericType && current.GetGenericTypeDefinition() == typeof(AggregateRoot<>))
             {
                 return true;
             }
             
-            // ENHANCEMENT: Also check if current type inherits from the non-generic AggregateRoot
-            // This handles cases where entities inherit from AggregateRoot (which inherits from AggregateRoot<Guid>)
             if (current == typeof(AggregateRoot))
             {
                 return true;
             }
             
-            // CRITICAL FIX: Check if any base class is a constructed generic type based on AggregateRoot<>
-            // This handles inheritance chains like: SpecificProduct : BaseProduct : AggregateRoot<Guid>
             if (InheritsFromAggregateRoot(current))
             {
                 return true;
             }
             
-            // Move to the base type
             current = current.BaseType;
         }
 
@@ -172,16 +173,11 @@ public static class DomainServicesExtensions
     
     /// <summary>
     /// Helper method to check if a type inherits from any AggregateRoot variant
-    /// This method performs deep inheritance analysis
     /// </summary>
-    /// <param name="type">The type to check</param>
-    /// <returns>True if the type inherits from AggregateRoot in any form</returns>
     private static bool InheritsFromAggregateRoot(Type type)
     {
-        // Check all interfaces and base types
         var allTypes = new List<Type>();
         
-        // Add base types
         var current = type.BaseType;
         while (current != null)
         {
@@ -189,7 +185,6 @@ public static class DomainServicesExtensions
             current = current.BaseType;
         }
         
-        // Check each type in the hierarchy
         foreach (var checkType in allTypes)
         {
             if (checkType.IsGenericType && checkType.GetGenericTypeDefinition() == typeof(AggregateRoot<>))
@@ -208,30 +203,23 @@ public static class DomainServicesExtensions
 
     /// <summary>
     /// ENHANCED: Gets the key type of an aggregate root with improved detection
-    /// Now handles complex inheritance scenarios properly
     /// </summary>
-    /// <param name="aggregateType">The aggregate type</param>
-    /// <returns>The key type if found; otherwise null</returns>
     private static Type? GetAggregateKeyTypeEnhanced(Type aggregateType)
     {
         var current = aggregateType;
         
         while (current != null)
         {
-            // Check if current type is directly AggregateRoot<TKey>
             if (current.IsGenericType && current.GetGenericTypeDefinition() == typeof(AggregateRoot<>))
             {
                 return current.GetGenericArguments()[0];
             }
             
-            // ENHANCEMENT: Check if current type inherits from non-generic AggregateRoot
-            // Non-generic AggregateRoot inherits from AggregateRoot<Guid>, so key type is Guid
             if (current == typeof(AggregateRoot))
             {
                 return typeof(Guid);
             }
             
-            // ENHANCEMENT: Check base types for generic AggregateRoot
             var baseType = current.BaseType;
             if (baseType is { IsGenericType: true } && baseType.GetGenericTypeDefinition() == typeof(AggregateRoot<>))
             {
