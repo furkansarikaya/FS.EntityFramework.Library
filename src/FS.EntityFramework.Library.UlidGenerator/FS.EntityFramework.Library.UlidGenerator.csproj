@@ -7,7 +7,7 @@
 
         <!-- NuGet Package Metadata -->
         <PackageId>FS.EntityFramework.Library.UlidGenerator</PackageId>
-        <Version>10.0.0</Version>
+        <Version>10.0.1</Version>
         <Authors>Furkan SARIKAYA</Authors>
         <Company>Furkan SARIKAYA</Company>
         <Product>FS EntityFramework Library - ULID Extension</Product>
@@ -103,7 +103,7 @@
 
     <!-- Release Mode: Use PackageReference for proper NuGet dependency -->
     <ItemGroup Condition="'$(Configuration)' == 'Release' AND '$(UseProjectReferences)' != 'true'">
-        <PackageReference Include="FS.EntityFramework.Library" Version="10.0.0" />
+        <PackageReference Include="FS.EntityFramework.Library" Version="10.0.1" />
     </ItemGroup>
 
     <!-- ULID Library Dependency -->

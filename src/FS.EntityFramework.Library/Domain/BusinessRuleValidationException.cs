@@ -4,7 +4,7 @@ namespace FS.EntityFramework.Library.Domain;
 /// Exception thrown when business rules are violated within the domain
 /// Provides structured error handling for domain rule violations
 /// </summary>
-public class BusinessRuleValidationException : Exception
+public sealed class BusinessRuleValidationException : Exception
 {
     /// <summary>
     /// Gets the business rule that was broken
@@ -25,5 +25,8 @@ public class BusinessRuleValidationException : Exception
     {
         BrokenRule = brokenRule;
         ErrorCode = brokenRule.ErrorCode;
+        
+        Data["ExposeMessage"] = true;
+        Data["ErrorCode"] = brokenRule.ErrorCode;
     }
 }
