@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using FS.EntityFramework.Library.Common;
 
 namespace FS.EntityFramework.Library.Domain;
@@ -17,18 +18,28 @@ public interface IDomainRepository<TAggregate, in TKey>
     /// Gets an aggregate by its identifier
     /// </summary>
     /// <param name="id">The aggregate identifier</param>
+    /// <param name="includes">Include expressions for related data</param>
+    /// <param name="disableTracking">Whether to disable change tracking</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>The aggregate if found; otherwise null</returns>
-    Task<TAggregate?> GetByIdAsync(TKey id, CancellationToken cancellationToken = default);
+    Task<TAggregate?> GetByIdAsync(TKey id,
+        List<Expression<Func<TAggregate, object>>>? includes = null,
+        bool disableTracking = true,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets an aggregate by its identifier, throwing exception if not found
     /// </summary>
     /// <param name="id">The aggregate identifier</param>
+    /// <param name="includes">Include expressions for related data</param>
+    /// <param name="disableTracking">Whether to disable change tracking</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>The aggregate</returns>
     /// <exception cref="InvalidOperationException">Thrown when aggregate not found</exception>
-    Task<TAggregate> GetByIdRequiredAsync(TKey id, CancellationToken cancellationToken = default);
+    Task<TAggregate> GetByIdRequiredAsync(TKey id,
+        List<Expression<Func<TAggregate, object>>>? includes = null,
+        bool disableTracking = true,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Adds a new aggregate to the repository

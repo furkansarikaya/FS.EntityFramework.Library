@@ -17,23 +17,30 @@ public interface IRepository<TEntity, in TKey>
     where TKey : IEquatable<TKey>
 {
     // Temel CRUD Operasyonları
-    
+
     /// <summary>
     /// Gets an entity by its primary key
     /// </summary>
     /// <param name="id">The primary key value</param>
+    /// <param name="includes">Include expressions for related data</param>
     /// <param name="disableTracking">Whether to disable change tracking</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>The entity if found, otherwise null</returns>
-    Task<TEntity?> GetByIdAsync(TKey id, bool disableTracking = false, CancellationToken cancellationToken = default);
-    
+    Task<TEntity?> GetByIdAsync(TKey id,
+        List<Expression<Func<TEntity, object>>>? includes = null,
+        bool disableTracking = false,
+        CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Gets all entities from the repository
     /// </summary>
+    /// <param name="includes">Include expressions for related data</param>
     /// <param name="disableTracking">Whether to disable change tracking</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>A read-only list of all entities</returns>
-    Task<IReadOnlyList<TEntity>> GetAllAsync(bool disableTracking = true, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<TEntity>> GetAllAsync(List<Expression<Func<TEntity, object>>>? includes = null,
+        bool disableTracking = true,
+        CancellationToken cancellationToken = default);
     
     /// <summary>
     /// Adds a new entity to the repository
@@ -223,15 +230,19 @@ public interface IRepository<TEntity, in TKey>
         CancellationToken cancellationToken = default);
     
     // Advanced Query Operations
-    
+
     /// <summary>
     /// Gets the first entity matching the predicate or null if not found
     /// </summary>
     /// <param name="predicate">The predicate to match</param>
+    /// <param name="includes">Include expressions for related data</param>
     /// <param name="disableTracking">Whether to disable change tracking</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>The first matching entity or null</returns>
-    Task<TEntity?> FirstOrDefaultAsync(Expression<Func<TEntity, bool>> predicate, bool disableTracking = true, CancellationToken cancellationToken = default);
+    Task<TEntity?> FirstOrDefaultAsync(Expression<Func<TEntity, bool>> predicate,
+        List<Expression<Func<TEntity, object>>>? includes = null,
+        bool disableTracking = true,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Finds entities matching the predicate with optional ordering and includes

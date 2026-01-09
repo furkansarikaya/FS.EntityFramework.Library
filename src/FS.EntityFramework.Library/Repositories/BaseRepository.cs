@@ -33,26 +33,43 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
     /// Gets an entity by its primary key
     /// </summary>
     /// <param name="id">The primary key value</param>
+    /// <param name="includes">Include expressions for related data</param>
     /// <param name="disableTracking">Whether to disable change tracking</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>The entity if found, otherwise null</returns>
-    public virtual async Task<TEntity?> GetByIdAsync(TKey id, bool disableTracking = false, CancellationToken cancellationToken = default) =>
-        disableTracking
-            ? await DbSet.AsNoTracking().FirstOrDefaultAsync(e => e.Id.Equals(id), cancellationToken)
-            : await DbSet.FindAsync([id], cancellationToken);
+    public virtual async Task<TEntity?> GetByIdAsync(TKey id,
+        List<Expression<Func<TEntity, object>>>? includes = null,
+        bool disableTracking = false,
+        CancellationToken cancellationToken = default)
+    {
+        var query = GetQueryable(disableTracking);
+    
+        if (includes != null && includes.Count != 0)
+        {
+            query = query.ApplyInclude(includes);
+        }
+    
+        return await query.FirstOrDefaultAsync(e => e.Id.Equals(id), cancellationToken);
+    }
 
     /// <summary>
     /// Gets all entities from the repository
     /// </summary>
+    /// <param name="includes">Include expressions for related data</param>
     /// <param name="disableTracking">Whether to disable change tracking</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>A read-only list of all entities</returns>
-    public virtual async Task<IReadOnlyList<TEntity>> GetAllAsync(bool disableTracking = true, CancellationToken cancellationToken = default)
+    public virtual async Task<IReadOnlyList<TEntity>> GetAllAsync(List<Expression<Func<TEntity, object>>>? includes = null,
+        bool disableTracking = true,
+        CancellationToken cancellationToken = default)
     {
-        var query = GetQueryable();
+        var query = GetQueryable(disableTracking);
 
-        if (disableTracking)
-            query = query.AsNoTracking();
+        if (includes != null && includes.Count != 0)
+        {
+            query = query.ApplyInclude(includes);
+        }
+
         return await query.ToListAsync(cancellationToken);
     }
 
@@ -368,12 +385,22 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
     /// Gets the first entity matching the predicate or null if not found
     /// </summary>
     /// <param name="predicate">The predicate to match</param>
+    /// <param name="includes">Include expressions for related data</param>
     /// <param name="disableTracking">Whether to disable change tracking</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>The first matching entity or null</returns>
-    public async Task<TEntity?> FirstOrDefaultAsync(Expression<Func<TEntity, bool>> predicate, bool disableTracking = true, CancellationToken cancellationToken = default)
+    public async Task<TEntity?> FirstOrDefaultAsync(Expression<Func<TEntity, bool>> predicate,
+        List<Expression<Func<TEntity, object>>>? includes = null,
+        bool disableTracking = true,
+        CancellationToken cancellationToken = default)
     {
         var query = GetQueryable(disableTracking);
+
+        if (includes != null && includes.Count != 0)
+        {
+            query = query.ApplyInclude(includes);
+        }
+
         return await query.FirstOrDefaultAsync(predicate, cancellationToken);
     }
 

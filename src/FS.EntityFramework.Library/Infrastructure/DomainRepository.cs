@@ -67,23 +67,30 @@ public class DomainRepository<TAggregate, TKey> : Domain.IDomainRepository<TAggr
     /// <summary>
     /// Gets an aggregate by its identifier
     /// </summary>
-    public async Task<TAggregate?> GetByIdAsync(TKey id, CancellationToken cancellationToken = default)
+    public async Task<TAggregate?> GetByIdAsync(TKey id,
+        List<Expression<Func<TAggregate, object>>>? includes = null,
+        bool disableTracking = true,
+        CancellationToken cancellationToken = default)
     {
-        return await _efRepository.GetByIdAsync(id, cancellationToken: cancellationToken);
+        return await _efRepository.GetByIdAsync(id,
+            includes: includes,
+            disableTracking: disableTracking,
+            cancellationToken: cancellationToken);
     }
 
     /// <summary>
     /// Gets an aggregate by its identifier, throwing exception if not found
     /// </summary>
-    public async Task<TAggregate> GetByIdRequiredAsync(TKey id, CancellationToken cancellationToken = default)
+    public async Task<TAggregate> GetByIdRequiredAsync(TKey id,
+        List<Expression<Func<TAggregate, object>>>? includes = null,
+        bool disableTracking = true,
+        CancellationToken cancellationToken = default)
     {
-        var aggregate = await GetByIdAsync(id, cancellationToken);
-        if (aggregate == null)
-        {
-            throw new Domain.AggregateNotFoundException(typeof(TAggregate), id!);
-        }
-
-        return aggregate;
+        var aggregate = await GetByIdAsync(id,
+            includes: includes,
+            disableTracking: disableTracking,
+            cancellationToken: cancellationToken);
+        return aggregate == null ? throw new Domain.AggregateNotFoundException(typeof(TAggregate), id!) : aggregate;
     }
 
     /// <summary>
