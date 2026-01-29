@@ -24,7 +24,7 @@ This library transforms Entity Framework Core into a powerful, enterprise-ready 
 
 ## 🚀 Quick Start
 
-Get started with FS.EntityFramework.Library in just 3 steps:
+Get started with FS.EntityFramework.Library in just 5 steps:
 
 ### Step 1: Install the Package
 
@@ -104,7 +104,7 @@ dotnet add package FS.EntityFramework.Library
 ### Extension Packages (Optional)
 
 ```bash
-# GUID Version 7 ID generation (.NET 9+)
+# GUID Version 7 ID generation (.NET 10+)
 dotnet add package FS.EntityFramework.Library.GuidV7
 
 # ULID ID generation
@@ -113,8 +113,8 @@ dotnet add package FS.EntityFramework.Library.UlidGenerator
 
 ### Requirements
 
-- **.NET 9.0** or later
-- **Entity Framework Core 9.0.7** or later
+- **.NET 10.0** or later
+- **Entity Framework Core 10.0.2** or later
 - **Microsoft.AspNetCore.Http.Abstractions 2.3.0** or later (for HttpContext support)
 
 ## 🏗️ Step-by-Step Implementation Guide
@@ -926,7 +926,7 @@ public class ProductSearchService
         }
         
         // Execute combined specification
-        return await _repository.FindAllAsync(specification);
+        return await _repository.FindAsync(specification);
     }
     
     // Advanced specification combinations
@@ -938,7 +938,7 @@ public class ProductSearchService
         // OR combination: expensive OR discounted products
         var combinedSpec = expensiveSpec.Or(discountedSpec);
         
-        return await _repository.FindAllAsync(combinedSpec);
+        return await _repository.FindAsync(combinedSpec);
     }
     
     public async Task<IEnumerable<Product>> FindNonExpensiveProductsAsync()
@@ -948,7 +948,7 @@ public class ProductSearchService
         // NOT combination: products that are NOT expensive
         var nonExpensiveSpec = expensiveSpec.Not();
         
-        return await _repository.FindAllAsync(nonExpensiveSpec);
+        return await _repository.FindAsync(nonExpensiveSpec);
     }
 }
 
@@ -1135,44 +1135,49 @@ public class AdvancedProductSearchSpecification : DomainSpecification<Product>
         int pageSize = 20,
         bool includeDeleted = false)
     {
+        // Dynamic criteria - only applied when parameter has value
+        AddCriteriaIf(minPrice.HasValue, p => p.Price >= minPrice!.Value);
+        AddCriteriaIf(maxPrice.HasValue, p => p.Price <= maxPrice!.Value);
+        AddCriteriaIf(categoryId.HasValue, p => p.CategoryId == categoryId!.Value);
+
         // Text search if provided
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
             ApplySearch(searchTerm, p => p.Name, p => p.Description);
         }
-        
+
         // Eager load relations
         AddIncludes(
             p => p.Category,
             p => p.Supplier,
             p => p.Reviews
         );
-        
+
         // Use split query for multiple collections
         EnableSplitQuery();
-        
+
         // Sorting
         AddOrderByDescending(p => p.CreatedAt);
         AddOrderBy(p => p.Name);
-        
+
         // Pagination
         ApplyPagingByIndex(pageIndex, pageSize);
-        
+
         // Include soft-deleted if requested
         if (includeDeleted)
         {
             ApplyIgnoreQueryFilters();
         }
-        
+
         // Read-only optimization
         AsNoTracking();
     }
-    
+
     public override bool IsSatisfiedBy(Product candidate)
     {
         return !candidate.IsDeleted;
     }
-    
+
     public override Expression<Func<Product, bool>> ToExpression()
     {
         return product => !product.IsDeleted;
@@ -1197,31 +1202,179 @@ public class ProductService
             pageSize: pageSize
         );
         
-        return await _repository.FindAllAsync(specification);
+        return await _repository.FindAsync(specification);
     }
 }
+```
+
+#### Dynamic Criteria with AddCriteria / AddCriteriaIf (v10.0.2+)
+
+Build dynamic queries with optional filters directly in specifications:
+
+```csharp
+public class ProductSearchSpecification : DomainSpecification<Product>
+{
+    public ProductSearchSpecification(
+        string? categoryName = null,
+        decimal? minPrice = null,
+        decimal? maxPrice = null,
+        bool? isActive = null,
+        string? searchTerm = null)
+    {
+        // Conditional criteria - only applied when parameter has value
+        AddCriteriaIf(!string.IsNullOrEmpty(categoryName),
+            p => p.Category.Name == categoryName!);
+
+        AddCriteriaIf(minPrice.HasValue,
+            p => p.Price >= minPrice!.Value);
+
+        AddCriteriaIf(maxPrice.HasValue,
+            p => p.Price <= maxPrice!.Value);
+
+        AddCriteriaIf(isActive.HasValue,
+            p => p.IsActive == isActive!.Value);
+
+        // Always-applied criteria
+        AddCriteria(p => !p.IsDeleted);
+
+        // Search
+        if (!string.IsNullOrEmpty(searchTerm))
+            ApplySearch(searchTerm, p => p.Name, p => p.Description);
+
+        AddOrderByDescending(p => p.CreatedAt);
+    }
+
+    public override bool IsSatisfiedBy(Product candidate) => !candidate.IsDeleted;
+    public override Expression<Func<Product, bool>> ToExpression() => p => true;
+}
+```
+
+#### Filtered Include (v10.0.2+)
+
+EF Core's filtered include is supported through `IncludeCollection`:
+
+```csharp
+public class BlogWithActivePostsSpecification : DomainSpecification<Blog>
+{
+    public BlogWithActivePostsSpecification()
+    {
+        // Filtered include - only load active posts
+        IncludeCollection(b => b.Posts.Where(p => p.IsPublished && !p.IsDeleted))
+            .ThenInclude(p => p.Author);
+
+        // Regular include
+        Include(b => b.Owner);
+    }
+
+    public override bool IsSatisfiedBy(Blog candidate) => true;
+    public override Expression<Func<Blog, bool>> ToExpression() => b => true;
+}
+```
+
+#### Type-Safe ThenInclude Support (v10.0.2+)
+
+```csharp
+public class OrderWithDetailsSpecification : DomainSpecification<Order>
+{
+    public OrderWithDetailsSpecification(Guid orderId)
+    {
+        // Type-safe ThenInclude chaining
+        Include(order => order.Customer)
+            .ThenInclude(customer => customer.Address);
+
+        // Collection ThenInclude
+        IncludeCollection(order => order.OrderItems)
+            .ThenInclude(item => item.Product)
+            .ThenInclude(product => product.Category);
+
+        // Multiple levels deep
+        IncludeCollection(order => order.Payments)
+            .ThenInclude(payment => payment.PaymentMethod);
+
+        AsTracking(); // Enable tracking for updates
+    }
+
+    public override bool IsSatisfiedBy(Order candidate) => true;
+    public override Expression<Func<Order, bool>> ToExpression() => o => o.Id == orderId;
+}
+```
+
+#### Specification with Pagination (FindPagedAsync) (v10.0.2+)
+
+```csharp
+var specification = new ActiveProductsSpecification(pageIndex: 0, pageSize: 20);
+
+// Returns IPaginate<Product> with total count, pages, etc.
+var pagedResult = await repository.FindPagedAsync(specification);
+
+// With projection
+var pagedDtos = await repository.FindPagedAsync(
+    specification,
+    selector: p => new ProductDto { Id = p.Id, Name = p.Name });
+```
+
+#### Single Entity from Specification (v10.0.2+)
+
+```csharp
+// FirstOrDefaultAsync with specification
+var product = await repository.FirstOrDefaultAsync(specification);
+
+// SingleOrDefaultAsync with specification (throws if multiple)
+var uniqueProduct = await repository.SingleOrDefaultAsync(specification);
+
+// FirstOrDefaultAsync with projection
+var dto = await repository.FirstOrDefaultAsync(
+    specification,
+    selector: p => new ProductDto { Id = p.Id, Name = p.Name });
 ```
 
 #### Specification Composition Summary
 
 **Available Methods:**
-- `ApplyPagingByIndex(pageIndex, pageSize)` - 0-based page pagination
-- `ApplyPagingBySkipAndTake(skip, take)` - Offset-based pagination
-- `AddOrderBy(expression)` - Ascending sort
-- `AddOrderByDescending(expression)` - Descending sort
-- `ApplySearch(term, properties...)` - Text search across properties
-- `AddInclude(expression)` - Eager load navigation property
+
+**Includes:**
+- `AddInclude(expression)` - Simple eager load navigation property
 - `AddInclude(string)` - String-based include for nested properties
 - `AddIncludes(expressions...)` - Multiple includes at once
-- `ApplyIgnoreQueryFilters()` - Bypass global filters
-- `ApplyGroupBy(expression)` - Group results
-- `EnableSplitQuery()` - Prevent Cartesian explosion
-- `AsNoTracking()` - Disable change tracking (default)
-- `EnableTracking()` - Enable change tracking
-- `And(spec)`, `Or(spec)`, `Not()` - Logical combinations
+- `Include<TProperty>(expression)` - Type-safe include with ThenInclude support
+- `IncludeCollection<TProperty>(expression)` - Collection include with ThenInclude support (supports filtered include)
+- `ClearIncludes()` - Remove all includes
 
-```
-```
+**Ordering:**
+- `AddOrderBy(expression)` - Ascending sort
+- `AddOrderByDescending(expression)` - Descending sort
+- `ClearOrdering()` - Reset all ordering
+
+**Pagination & Limiting:**
+- `ApplyPagingByIndex(pageIndex, pageSize)` - 0-based page pagination
+- `ApplyPagingBySkipAndTake(skip, take)` - Offset-based pagination
+- `ApplyLimit(count)` - Limit results without pagination metadata
+
+**Filtering & Criteria:**
+- `AddCriteria(predicate)` - Add an additional filter predicate
+- `AddCriteriaIf(condition, predicate)` - Conditionally add a filter predicate
+- `ClearCriteria()` - Remove all additional criteria
+- `ApplySearch(term, properties...)` - Text search across properties
+- `ApplyIgnoreQueryFilters()` - Bypass global filters
+- `ApplyDistinct()` - Return only distinct results
+
+**Grouping:**
+- `ApplyGroupBy(expression)` - Group results
+
+**Projection:**
+- `ApplySelector<TResult>(expression)` - Define projection in specification
+
+**Tracking:**
+- `AsNoTracking()` - Disable change tracking (default)
+- `AsTracking()` / `EnableTracking()` - Enable change tracking
+- `AsNoTrackingWithIdentityResolution()` - No tracking with identity resolution
+
+**Query Optimization:**
+- `EnableSplitQuery()` - Prevent Cartesian explosion
+- `TagWith(tag)` - Add query tag for debugging/logging
+
+**Composition:**
+- `And(spec)`, `Or(spec)`, `Not()` - Logical combinations
 
 ## 📊 Advanced Features
 
@@ -1367,16 +1520,35 @@ The library provides a complete infrastructure layer implementing DDD patterns:
 
 ```csharp
 // IDomainRepository interface for aggregate roots
-public interface IDomainRepository<TAggregate, TKey> 
+public interface IDomainRepository<TAggregate, TKey>
     where TAggregate : AggregateRoot<TKey>
     where TKey : IEquatable<TKey>
 {
-    Task<TAggregate?> GetByIdAsync(TKey id, CancellationToken cancellationToken = default);
-    Task<TAggregate?> FindAsync(ISpecification<TAggregate> specification, CancellationToken cancellationToken = default);
-    Task<IEnumerable<TAggregate>> FindAllAsync(ISpecification<TAggregate> specification, CancellationToken cancellationToken = default);
+    // Core CRUD
+    Task<TAggregate?> GetByIdAsync(TKey id, List<Expression<Func<TAggregate, object>>>? includes = null, bool disableTracking = false, CancellationToken cancellationToken = default);
+    Task<TAggregate> GetByIdRequiredAsync(TKey id, List<Expression<Func<TAggregate, object>>>? includes = null, bool disableTracking = false, CancellationToken cancellationToken = default);
     Task AddAsync(TAggregate aggregate, CancellationToken cancellationToken = default);
     Task UpdateAsync(TAggregate aggregate, CancellationToken cancellationToken = default);
-    Task DeleteAsync(TAggregate aggregate, CancellationToken cancellationToken = default);
+    Task RemoveAsync(TAggregate aggregate, CancellationToken cancellationToken = default);
+
+    // Specification queries
+    Task<IEnumerable<TAggregate>> FindAsync(ISpecification<TAggregate> specification, CancellationToken cancellationToken = default);
+    Task<bool> AnyAsync(ISpecification<TAggregate> specification, CancellationToken cancellationToken = default);
+    Task<int> CountAsync(ISpecification<TAggregate> specification, CancellationToken cancellationToken = default);
+
+    // Single entity from specification
+    Task<TAggregate?> FirstOrDefaultAsync(ISpecification<TAggregate> specification, CancellationToken cancellationToken = default);
+    Task<TAggregate?> SingleOrDefaultAsync(ISpecification<TAggregate> specification, CancellationToken cancellationToken = default);
+
+    // Projection methods
+    Task<TResult?> GetByIdAsync<TResult>(TKey id, Expression<Func<TAggregate, TResult>> selector, CancellationToken cancellationToken = default);
+    Task<IEnumerable<TResult>> FindAsync<TResult>(ISpecification<TAggregate> specification, Expression<Func<TAggregate, TResult>> selector, CancellationToken cancellationToken = default);
+    Task<IEnumerable<TResult>> FindWithSelectorAsync<TResult>(ISpecification<TAggregate> specification, CancellationToken cancellationToken = default);
+    Task<TResult?> FirstOrDefaultAsync<TResult>(ISpecification<TAggregate> specification, Expression<Func<TAggregate, TResult>> selector, CancellationToken cancellationToken = default);
+
+    // Paginated results
+    Task<IPaginate<TAggregate>> FindPagedAsync(ISpecification<TAggregate> specification, CancellationToken cancellationToken = default);
+    Task<IPaginate<TResult>> FindPagedAsync<TResult>(ISpecification<TAggregate> specification, Expression<Func<TAggregate, TResult>> selector, CancellationToken cancellationToken = default);
 }
 
 // Usage with automatic registration
@@ -1392,7 +1564,7 @@ public class OrderRepository : DomainRepository<OrderAggregate, Guid>, IOrderRep
     
     public async Task<OrderAggregate?> FindByOrderNumberAsync(string orderNumber)
     {
-        return await FindAsync(new OrderByNumberSpecification(orderNumber));
+        return await FirstOrDefaultAsync(new OrderByNumberSpecification(orderNumber));
     }
 }
 ```
@@ -1494,6 +1666,209 @@ var filteredPage = await repository.GetPagedWithFilterAsync(
 // "equals", "notequals", "contains", "startswith", "endswith"
 // "greaterthan", "greaterthanorequal", "lessthan", "lessthanorequal"
 // "isnull", "isnotnull", "isempty", "isnotempty"
+```
+
+#### Cursor-Based Pagination (v10.0.2+)
+
+Cursor pagination is more efficient than offset pagination for large datasets:
+
+```csharp
+// Basic cursor pagination
+var repository = _unitOfWork.GetRepository<Product, int>();
+
+// Get first page
+var firstPage = await repository.GetCursorPagedAsync<int>(
+    pageSize: 20,
+    afterCursor: null,           // null for first page
+    beforeCursor: null,
+    cursorSelector: p => p.Id,   // Use ID as cursor
+    predicate: p => p.IsActive,
+    orderBy: q => q.OrderBy(p => p.Id)
+);
+
+// Get next page using LastCursor
+var nextPage = await repository.GetCursorPagedAsync<int>(
+    pageSize: 20,
+    afterCursor: firstPage.LastCursor,  // Start after last item
+    beforeCursor: null,
+    cursorSelector: p => p.Id
+);
+
+// ICursorPaginate interface
+// - Items: Current page items
+// - Size: Requested page size
+// - Count: Actual items returned
+// - FirstCursor/LastCursor: Cursor values for navigation
+// - HasNext/HasPrevious: Navigation availability
+
+// Cursor pagination with projection
+var projectedPage = await repository.GetCursorPagedAsync<ProductDto, int>(
+    selector: p => new ProductDto { Id = p.Id, Name = p.Name, Price = p.Price },
+    pageSize: 20,
+    afterCursor: null,
+    beforeCursor: null,
+    cursorSelector: p => p.Id
+);
+```
+
+### Projection/Select Support (v10.0.2+)
+
+The library provides comprehensive projection methods for efficient data retrieval:
+
+#### Repository Projection Methods
+
+```csharp
+var repository = _unitOfWork.GetRepository<Product, int>();
+
+// Project single entity by ID
+var productDto = await repository.GetByIdAsync(
+    id: 1,
+    selector: p => new ProductDto
+    {
+        Id = p.Id,
+        Name = p.Name,
+        CategoryName = p.Category.Name,
+        Price = p.Price
+    });
+
+// Project all entities
+var allProductDtos = await repository.GetAllAsync(
+    selector: p => new ProductSummaryDto
+    {
+        Id = p.Id,
+        Name = p.Name
+    });
+
+// Project first match
+var cheapestProduct = await repository.FirstOrDefaultAsync(
+    predicate: p => p.CategoryId == categoryId,
+    selector: p => new ProductDto { Id = p.Id, Name = p.Name, Price = p.Price });
+
+// Project single match (throws if multiple)
+var uniqueProduct = await repository.SingleOrDefaultAsync(
+    predicate: p => p.Sku == "ABC123",
+    selector: p => new ProductDto { Id = p.Id, Name = p.Name });
+
+// Project with filter and ordering
+var filteredProducts = await repository.FindAsync(
+    predicate: p => p.Price > 100,
+    selector: p => new ProductDto { Id = p.Id, Name = p.Name, Price = p.Price },
+    orderBy: q => q.OrderByDescending(p => p.Price));
+
+// Paginated projection
+var pagedProducts = await repository.GetPagedAsync(
+    selector: p => new ProductListDto
+    {
+        Id = p.Id,
+        Name = p.Name,
+        CategoryName = p.Category.Name
+    },
+    pageIndex: 0,
+    pageSize: 20,
+    predicate: p => p.IsActive,
+    orderBy: q => q.OrderBy(p => p.Name));
+
+// Filtered pagination with projection
+var filteredPagedProducts = await repository.GetPagedWithFilterAsync(
+    selector: p => new ProductDto { Id = p.Id, Name = p.Name },
+    filter: filterModel,
+    pageIndex: 0,
+    pageSize: 20);
+
+// Specification with projection
+var spec = new ActiveProductsSpecification();
+var specProducts = await repository.GetAsync(spec,
+    selector: p => new ProductDto { Id = p.Id, Name = p.Name });
+```
+
+#### Domain Repository Projection Methods
+
+```csharp
+var domainRepository = _domainUnitOfWork.GetRepository<ProductAggregate, Guid>();
+
+// Project aggregate by ID
+var productDto = await domainRepository.GetByIdAsync(
+    id: productId,
+    selector: p => new ProductDetailDto
+    {
+        Id = p.Id,
+        Name = p.Name,
+        TotalOrderCount = p.Orders.Count
+    });
+
+// Project with specification
+var specification = new ActiveProductsSpecification();
+var products = await domainRepository.FindAsync(
+    specification,
+    selector: p => new ProductSummaryDto { Id = p.Id, Name = p.Name });
+```
+
+#### Specification-Based Projection
+
+Define projections directly in specifications:
+
+```csharp
+public class ProductListSpecification : DomainSpecification<Product>
+{
+    public ProductListSpecification(int categoryId, int pageIndex, int pageSize)
+    {
+        // Define the projection
+        ApplySelector<ProductListDto>(p => new ProductListDto
+        {
+            Id = p.Id,
+            Name = p.Name,
+            CategoryName = p.Category.Name,
+            Price = p.Price,
+            ReviewCount = p.Reviews.Count
+        });
+
+        AddInclude(p => p.Category);
+        AddOrderBy(p => p.Name);
+        ApplyPagingByIndex(pageIndex, pageSize);
+    }
+
+    public override bool IsSatisfiedBy(Product candidate) =>
+        candidate.CategoryId == categoryId;
+
+    public override Expression<Func<Product, bool>> ToExpression() =>
+        p => p.CategoryId == categoryId;
+}
+
+// Usage
+var specification = new ProductListSpecification(categoryId: 5, pageIndex: 0, pageSize: 20);
+var results = await repository.FindWithSelectorAsync<ProductListDto>(specification);
+```
+
+### Additional Query Methods (v10.0.2+)
+
+#### SingleOrDefaultAsync
+
+Get exactly one entity or null, throws if multiple match:
+
+```csharp
+// Entity version
+var product = await repository.SingleOrDefaultAsync(
+    predicate: p => p.Sku == "UNIQUE-SKU",
+    includes: new List<Expression<Func<Product, object>>> { p => p.Category },
+    disableTracking: true);
+
+// Projection version
+var productDto = await repository.SingleOrDefaultAsync(
+    predicate: p => p.Sku == "UNIQUE-SKU",
+    selector: p => new ProductDto { Id = p.Id, Name = p.Name });
+```
+
+#### AnyAsync with Predicate
+
+Check existence with optional predicate:
+
+```csharp
+// Check if any products exist
+var hasAnyProducts = await repository.AnyAsync();
+
+// Check with predicate
+var hasExpensiveProducts = await repository.AnyAsync(p => p.Price > 1000);
+var hasActiveProducts = await repository.AnyAsync(p => p.IsActive && !p.IsDeleted);
 ```
 
 ### ID Generation Extensions
@@ -1697,11 +2072,26 @@ Optimize your application with these performance best practices:
 #### Repository Query Optimization
 
 ```csharp
-// ✅ Good: Use projections for read-only data
-public async Task<IEnumerable<ProductSummaryDto>> GetProductSummariesAsync()
+// ✅ Good: Use built-in projection methods (v10.0.2+)
+public async Task<IReadOnlyList<ProductSummaryDto>> GetProductSummariesAsync()
 {
     var repository = _unitOfWork.GetRepository<Product, int>();
-    
+
+    // Built-in projection method - cleaner and more efficient
+    return await repository.GetAllAsync(p => new ProductSummaryDto
+    {
+        Id = p.Id,
+        Name = p.Name,
+        Price = p.Price,
+        CategoryName = p.Category.Name
+    });
+}
+
+// ✅ Good: Alternative using GetQueryable for complex scenarios
+public async Task<IEnumerable<ProductSummaryDto>> GetProductSummariesManualAsync()
+{
+    var repository = _unitOfWork.GetRepository<Product, int>();
+
     return await repository.GetQueryable(disableTracking: true)
         .Select(p => new ProductSummaryDto
         {
@@ -1991,19 +2381,30 @@ services.AddFSEntityFramework<ApplicationDbContext>()
 #### Use Projections for Read-Only Data
 
 ```csharp
-// ✅ Use projections for better performance
-public async Task<IEnumerable<ProductSummaryDto>> GetProductSummariesAsync()
+// ✅ Use built-in projection methods for better performance (v10.0.2+)
+public async Task<IReadOnlyList<ProductSummaryDto>> GetProductSummariesAsync()
 {
     var repository = _unitOfWork.GetRepository<Product, int>();
-    
-    return await repository.GetQueryable()
-        .Select(p => new ProductSummaryDto
-        {
-            Id = p.Id,
-            Name = p.Name,
-            Price = p.Price
-        })
-        .ToListAsync();
+
+    // Direct projection method
+    return await repository.GetAllAsync(p => new ProductSummaryDto
+    {
+        Id = p.Id,
+        Name = p.Name,
+        Price = p.Price
+    });
+}
+
+// ✅ Paginated projection
+public async Task<IPaginate<ProductSummaryDto>> GetPagedProductSummariesAsync(int page, int size)
+{
+    var repository = _unitOfWork.GetRepository<Product, int>();
+
+    return await repository.GetPagedAsync(
+        selector: p => new ProductSummaryDto { Id = p.Id, Name = p.Name, Price = p.Price },
+        pageIndex: page,
+        pageSize: size,
+        orderBy: q => q.OrderBy(p => p.Name));
 }
 ```
 

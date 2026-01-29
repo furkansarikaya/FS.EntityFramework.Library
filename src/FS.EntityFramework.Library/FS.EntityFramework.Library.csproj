@@ -7,7 +7,7 @@
 
         <!-- NuGet Package Metadata -->
         <PackageId>FS.EntityFramework.Library</PackageId>
-        <Version>10.0.1.1</Version>
+        <Version>10.0.2</Version>
         <Authors>Furkan SARIKAYA</Authors>
         <Company>Furkan SARIKAYA</Company>
         <Product>FS EntityFramework Library</Product>
@@ -19,41 +19,56 @@
         <RepositoryUrl>https://github.com/furkansarikaya/FS.EntityFramework.Library</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageReleaseNotes>
-            Version 10.0.0.1 - Enhanced Domain Specifications and Documentation
+Version 10.0.2 - Comprehensive Projection Support &amp; New Features
 
-            🚀 NEW FEATURES:
-            - Enhanced DomainSpecification&lt;T&gt; with comprehensive fluent API
-            - ApplyPagingByIndex and ApplyPagingBySkipAndTake for flexible pagination
-            - AddOrderBy and AddOrderByDescending for multi-level sorting
-            - ApplySearch for text-based searching across multiple properties
-            - ApplyGroupBy for aggregation scenarios
-            - ApplyIgnoreQueryFilters to bypass global query filters
-            - EnableSplitQuery to prevent Cartesian explosion
-            - Multiple include methods (AddInclude, AddIncludes) for eager loading
-            - AsNoTracking and EnableTracking for performance control
+🚀 NEW FEATURES:
 
-            📚 DOCUMENTATION IMPROVEMENTS:
-            - Comprehensive specification pattern examples with real-world scenarios
-            - Detailed fluent API usage documentation
-            - Fixed AggregateRoot constructor usage examples
-            - Added 7 categories of specification examples (pagination, sorting, search, includes, filters, grouping, complex scenarios)
-            - Complete method reference for all specification features
+PROJECTION/SELECT SUPPORT:
+- GetByIdAsync&lt;TResult&gt;(id, selector) - Project single entity by ID
+- GetAllAsync&lt;TResult&gt;(selector) - Project all entities
+- FirstOrDefaultAsync&lt;TResult&gt;(predicate, selector) - Project first match
+- SingleOrDefaultAsync&lt;TResult&gt;(predicate, selector) - Project single match (throws if multiple)
+- FindAsync&lt;TResult&gt;(predicate, selector, orderBy) - Project filtered results
+- GetPagedAsync&lt;TResult&gt;(selector, ...) - Paginated projections
+- GetPagedWithFilterAsync&lt;TResult&gt;(selector, ...) - Filtered pagination with projection
+- GetAsync&lt;TResult&gt;(spec, selector) - Specification with projection
 
-            🔧 BUG FIXES:
-            - Corrected README examples for AggregateRoot instantiation
-            - Fixed documentation inconsistencies
+SPECIFICATION ENHANCEMENTS:
+- ApplySelector&lt;TResult&gt;() - Define projection in specification
+- Include&lt;TProperty&gt;() with ThenInclude chaining - Type-safe nested eager loading
+- IncludeCollection&lt;TProperty&gt;() with ThenInclude/ThenIncludeCollection
+- AsTracking() - Explicit tracking enable
+- AsNoTrackingWithIdentityResolution() - No tracking with identity resolution
+- ApplyDistinct() - Return distinct results
+- ApplyLimit(count) - Limit results without pagination
+- ClearOrdering() - Reset ordering
+- TagWith(tag) - Query tagging for debugging
+- FindWithSelectorAsync() - Execute specification with built-in selector
+- FindPagedAsync() - Returns IPaginate from specification
+- FirstOrDefaultAsync(spec) / SingleOrDefaultAsync(spec) - Single entity from spec
+- FirstOrDefaultAsync&lt;TResult&gt;(spec, selector) - Projected single entity from spec
 
-            ⚡ ENHANCEMENTS:
-            - Improved specification composition with And, Or, Not operators
-            - Better support for complex query building
-            - Enhanced performance with tracking control options
+NEW QUERY METHODS:
+- SingleOrDefaultAsync(predicate, includes, disableTracking) - Get exactly one entity
+- AnyAsync(predicate?) - Check existence with optional predicate
 
-            This patch release focuses on expanding the specification pattern capabilities
-            and providing comprehensive documentation for all features. All existing
-            functionality remains fully backward compatible.
+CURSOR-BASED PAGINATION:
+- GetCursorPagedAsync() - Efficient pagination for large datasets
+- GetCursorPagedAsync&lt;TResult&gt;() - Cursor pagination with projection
+- ICursorPaginate&lt;T, TCursor&gt; interface
+- HasNext/HasPrevious, FirstCursor/LastCursor support
 
-            Perfect for: Complex query scenarios, Advanced filtering, Performance optimization,
-            Domain-rich applications, Enterprise search functionality
+⚡ IMPROVEMENTS:
+- IDomainRepository.GetByIdAsync now defaults to disableTracking=false
+- IDomainRepository.GetByIdRequiredAsync now defaults to disableTracking=false
+- Projection queries automatically use AsNoTracking for performance
+- Type-safe ThenInclude via Include/IncludeCollection builder pattern
+- IncludeExpressionInfo for advanced include chain tracking
+
+🔧 BREAKING CHANGES:
+- IDomainRepository.GetByIdAsync default changed: disableTracking true → false
+- IDomainRepository.GetByIdRequiredAsync default changed: disableTracking true → false
+- If you relied on previous defaults, explicitly pass disableTracking: true
         </PackageReleaseNotes>
 
         <!-- Documentation -->
@@ -65,7 +80,7 @@
         <PackageReadmeFile>README.md</PackageReadmeFile>
 
         <!-- Package Icon -->
-        <PackageIconFile>icon.png</PackageIconFile>
+        <PackageIcon>icon.png</PackageIcon>
 
         <!-- Symbol Package -->
         <IncludeSymbols>true</IncludeSymbols>
@@ -73,15 +88,14 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <!-- Content Files -->
-        <Content Include="..\..\README.md" Pack="true" PackagePath="\"/>
+        <None Include="..\..\README.md" Pack="true" PackagePath="\"/>
         <Content Include="..\..\LICENSE" Pack="true" PackagePath="\"/>
         <Content Include="icon.png" Pack="true" PackagePath="\"/>
     </ItemGroup>
 
     <!-- Package Dependencies -->
     <ItemGroup>
-        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.1" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.2" />
         <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.0"/>
         <PackageReference Include="Microsoft.AspNetCore.Http" Version="2.3.0"/>
     </ItemGroup>

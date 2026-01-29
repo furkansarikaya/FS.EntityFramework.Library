@@ -10,9 +10,20 @@ namespace FS.EntityFramework.Library.Domain;
 public abstract class DomainSpecification<T> : ISpecification<T>
 {
     private readonly List<Expression<Func<T, object>>> _includes = [];
+    private readonly List<IncludeExpressionInfo> _includeExpressions = [];
     private readonly List<string> _includeStrings = [];
+    private readonly List<Expression<Func<T, bool>>> _additionalCriteria = [];
     private readonly List<(Expression<Func<T, object>> KeySelector, bool Ascending)> _orderExpressions = [];
 
+    /// <summary>
+    /// Gets the selector expression for projecting entities to a different type.
+    /// </summary>
+    public LambdaExpression? Selector { get; private set; }
+
+    /// <summary>
+    /// Gets the result type when a selector is applied.
+    /// </summary>
+    public Type? SelectorResultType { get; private set; }
 
     /// <summary>
     /// Gets the collection of include expressions for eager loading related entities.
@@ -20,20 +31,36 @@ public abstract class DomainSpecification<T> : ISpecification<T>
     public IReadOnlyList<Expression<Func<T, object>>> Includes => _includes.AsReadOnly();
 
     /// <summary>
+    /// Gets the collection of include expression information for advanced eager loading.
+    /// </summary>
+    public IReadOnlyList<IncludeExpressionInfo> IncludeExpressions => _includeExpressions.AsReadOnly();
+
+    /// <summary>
     /// Gets the collection of include strings for eager loading related entities using string-based navigation.
     /// </summary>
     public IReadOnlyList<string> IncludeStrings => _includeStrings.AsReadOnly();
-    
+
     /// <summary>
     /// Gets the collection of ordering expressions with their direction.
     /// </summary>
     public IReadOnlyList<(Expression<Func<T, object>> KeySelector, bool Ascending)> OrderExpressions => _orderExpressions.AsReadOnly();
-    
+
+    /// <summary>
+    /// Gets additional filter criteria expressions applied to the query.
+    /// These are combined with the main ToExpression() predicate using AND logic.
+    /// </summary>
+    public IReadOnlyList<Expression<Func<T, bool>>> AdditionalCriteria => _additionalCriteria.AsReadOnly();
+
     /// <summary>
     /// Gets a value indicating whether change tracking should be disabled for this specification.
     /// Disabling tracking improves performance for read-only queries.
     /// </summary>
     public bool DisableTracking { get; private set; } = true;
+
+    /// <summary>
+    /// Gets a value indicating whether to use identity resolution with no tracking.
+    /// </summary>
+    public bool UseIdentityResolution { get; private set; }
 
     /// <summary>
     /// Gets a value indicating whether pagination is enabled for this specification.
@@ -53,6 +80,11 @@ public abstract class DomainSpecification<T> : ISpecification<T>
     public int Take { get; private set; }
 
     /// <summary>
+    /// Gets the maximum number of items to return (without pagination metadata).
+    /// </summary>
+    public int? Limit { get; private set; }
+
+    /// <summary>
     /// Gets a value indicating whether the specification should ignore query filters (e.g., soft delete filters).
     /// </summary>
     public bool IgnoreQueryFilters { get; private set; }
@@ -62,6 +94,11 @@ public abstract class DomainSpecification<T> : ISpecification<T>
     /// Useful for complex includes that might cause cartesian explosion.
     /// </summary>
     public bool AsSplitQuery { get; private set; }
+
+    /// <summary>
+    /// Gets a value indicating whether distinct results should be returned.
+    /// </summary>
+    public bool IsDistinct { get; private set; }
 
     /// <summary>
     /// Gets the grouping expression for aggregating results.
@@ -77,7 +114,12 @@ public abstract class DomainSpecification<T> : ISpecification<T>
     /// Gets the collection of properties to search when SearchTerm is specified.
     /// </summary>
     public IReadOnlyList<Expression<Func<T, object>>>? SearchProperties { get; private set; }
-    
+
+    /// <summary>
+    /// Gets the query tag for debugging purposes.
+    /// </summary>
+    public string? QueryTag { get; private set; }
+
     /// <summary>
     /// When implemented in a derived class, determines whether the candidate satisfies this specification
     /// </summary>
@@ -91,6 +133,8 @@ public abstract class DomainSpecification<T> : ISpecification<T>
     /// <returns>A predicate function</returns>
     public abstract Expression<Func<T, bool>> ToExpression();
 
+    // ===== INCLUDE METHODS =====
+
     /// <summary>
     /// Adds an include expression for eager loading a related entity or collection.
     /// This method enables loading of navigation properties to avoid N+1 query problems.
@@ -101,7 +145,7 @@ public abstract class DomainSpecification<T> : ISpecification<T>
     /// <code>
     /// // Include single navigation property
     /// AddInclude(order => order.Customer);
-    /// 
+    ///
     /// // Include collection navigation property
     /// AddInclude(order => order.OrderItems);
     /// </code>
@@ -115,6 +159,79 @@ public abstract class DomainSpecification<T> : ISpecification<T>
     }
 
     /// <summary>
+    /// Adds a type-safe include with support for ThenInclude chaining.
+    /// </summary>
+    /// <typeparam name="TProperty">The type of the property to include</typeparam>
+    /// <param name="includeExpression">Expression pointing to the navigation property to include</param>
+    /// <returns>An include builder for chaining ThenInclude calls</returns>
+    /// <example>
+    /// <code>
+    /// // Simple include
+    /// Include(order => order.Customer);
+    ///
+    /// // Include with ThenInclude
+    /// Include(order => order.OrderItems)
+    ///     .ThenInclude(item => item.Product)
+    ///     .ThenInclude(product => product.Category);
+    /// </code>
+    /// </example>
+    protected IIncludeBuilder<T, TProperty> Include<TProperty>(Expression<Func<T, TProperty>> includeExpression)
+        where TProperty : class
+    {
+        ArgumentNullException.ThrowIfNull(includeExpression);
+
+        var info = new IncludeExpressionInfo(
+            includeExpression,
+            typeof(T),
+            typeof(TProperty),
+            null,
+            false);
+
+        _includeExpressions.Add(info);
+
+        return new IncludeBuilder<T, TProperty>(this, info);
+    }
+
+    /// <summary>
+    /// Adds a type-safe include for a collection navigation property with ThenInclude support.
+    /// </summary>
+    /// <typeparam name="TProperty">The type of the items in the collection</typeparam>
+    /// <param name="includeExpression">Expression pointing to the collection navigation property to include</param>
+    /// <returns>An include builder for chaining ThenInclude calls</returns>
+    /// <example>
+    /// <code>
+    /// // Include collection with ThenInclude
+    /// IncludeCollection(order => order.OrderItems)
+    ///     .ThenInclude(item => item.Product);
+    /// </code>
+    /// </example>
+    protected IIncludeBuilder<T, TProperty> IncludeCollection<TProperty>(
+        Expression<Func<T, IEnumerable<TProperty>>> includeExpression)
+        where TProperty : class
+    {
+        ArgumentNullException.ThrowIfNull(includeExpression);
+
+        var info = new IncludeExpressionInfo(
+            includeExpression,
+            typeof(T),
+            typeof(TProperty),
+            null,
+            true);
+
+        _includeExpressions.Add(info);
+
+        return new IncludeBuilder<T, TProperty>(this, info);
+    }
+
+    /// <summary>
+    /// Internal method to add include expression info from builder
+    /// </summary>
+    internal void AddIncludeExpressionInfo(IncludeExpressionInfo info)
+    {
+        _includeExpressions.Add(info);
+    }
+
+    /// <summary>
     /// Adds a string-based include for eager loading related entities using navigation property path.
     /// This method is useful for including nested properties or when working with dynamic scenarios.
     /// </summary>
@@ -124,7 +241,7 @@ public abstract class DomainSpecification<T> : ISpecification<T>
     /// <code>
     /// // Include single level
     /// AddInclude("Customer");
-    /// 
+    ///
     /// // Include nested properties (ThenInclude equivalent)
     /// AddInclude("OrderItems.Product");
     /// AddInclude("OrderItems.Product.Category");
@@ -239,6 +356,17 @@ public abstract class DomainSpecification<T> : ISpecification<T>
         return this;
     }
 
+    /// <summary>
+    /// Clears all existing order expressions.
+    /// Useful when you want to reset ordering in a derived specification.
+    /// </summary>
+    /// <returns>The specification instance for method chaining</returns>
+    protected DomainSpecification<T> ClearOrdering()
+    {
+        _orderExpressions.Clear();
+        return this;
+    }
+
     // ===== PAGINATION METHODS =====
 
     /// <summary>
@@ -258,7 +386,7 @@ public abstract class DomainSpecification<T> : ISpecification<T>
     {
         if (pageIndex < 0)
             throw new ArgumentException("Page index must be non-negative", nameof(pageIndex));
-        
+
         if (pageSize <= 0)
             throw new ArgumentException("Page size must be positive", nameof(pageSize));
 
@@ -278,13 +406,34 @@ public abstract class DomainSpecification<T> : ISpecification<T>
     {
         if (skip < 0)
             throw new ArgumentException("Skip must be non-negative", nameof(skip));
-        
+
         if (take <= 0)
             throw new ArgumentException("Take must be positive", nameof(take));
 
         Skip = skip;
         Take = take;
         IsPagingEnabled = true;
+        return this;
+    }
+
+    /// <summary>
+    /// Limits the number of results returned without full pagination.
+    /// Use this when you only need to limit results without pagination metadata.
+    /// </summary>
+    /// <param name="count">The maximum number of items to return</param>
+    /// <returns>The specification instance for method chaining</returns>
+    /// <example>
+    /// <code>
+    /// // Get top 10 products
+    /// ApplyLimit(10);
+    /// </code>
+    /// </example>
+    protected DomainSpecification<T> ApplyLimit(int count)
+    {
+        if (count <= 0)
+            throw new ArgumentException("Limit must be positive", nameof(count));
+
+        Limit = count;
         return this;
     }
 
@@ -298,6 +447,27 @@ public abstract class DomainSpecification<T> : ISpecification<T>
     protected DomainSpecification<T> EnableTracking()
     {
         DisableTracking = false;
+        UseIdentityResolution = false;
+        return this;
+    }
+
+    /// <summary>
+    /// Enables change tracking for entities loaded by this specification.
+    /// This is an alias for EnableTracking() and useful when you need to modify loaded entities.
+    /// </summary>
+    /// <returns>The specification instance for method chaining.</returns>
+    /// <remarks>
+    /// Use this method when:
+    /// - You need to update entities after loading them
+    /// - You want EF Core to track changes automatically
+    /// - You're working with a Unit of Work pattern that requires tracking
+    ///
+    /// Note: Tracking has performance overhead. Use AsNoTracking() for read-only queries.
+    /// </remarks>
+    protected DomainSpecification<T> AsTracking()
+    {
+        DisableTracking = false;
+        UseIdentityResolution = false;
         return this;
     }
 
@@ -309,6 +479,73 @@ public abstract class DomainSpecification<T> : ISpecification<T>
     protected DomainSpecification<T> AsNoTracking()
     {
         DisableTracking = true;
+        UseIdentityResolution = false;
+        return this;
+    }
+
+    /// <summary>
+    /// Disables change tracking but enables identity resolution.
+    /// Useful when you need to avoid duplicate entity instances without tracking.
+    /// </summary>
+    /// <returns>The specification instance for method chaining</returns>
+    /// <remarks>
+    /// Use this when loading entities with complex relationships where the same entity
+    /// might be referenced multiple times. This ensures all references point to the same instance.
+    /// </remarks>
+    protected DomainSpecification<T> AsNoTrackingWithIdentityResolution()
+    {
+        DisableTracking = true;
+        UseIdentityResolution = true;
+        return this;
+    }
+
+    // ===== PROJECTION/SELECTOR =====
+
+    /// <summary>
+    /// Applies a projection selector to transform entities to a different type.
+    /// The projection is executed at the database level for optimal performance.
+    /// Only the columns needed for the projection are fetched from the database.
+    /// </summary>
+    /// <typeparam name="TResult">The type to project entities to. Can be a DTO, anonymous type, or any class.</typeparam>
+    /// <param name="selector">
+    /// An expression that defines how to transform each entity to the result type.
+    /// Navigation properties can be accessed in the selector expression.
+    /// </param>
+    /// <returns>The specification instance for method chaining.</returns>
+    /// <example>
+    /// <code>
+    /// public class ProductListSpecification : DomainSpecification&lt;Product&gt;
+    /// {
+    ///     public ProductListSpecification()
+    ///     {
+    ///         ApplySelector&lt;ProductListDto&gt;(p => new ProductListDto
+    ///         {
+    ///             Id = p.Id,
+    ///             Name = p.Name,
+    ///             CategoryName = p.Category.Name,
+    ///             Price = p.Price
+    ///         });
+    ///
+    ///         AddOrderBy(p => p.Name);
+    ///         ApplyPagingByIndex(0, 20);
+    ///     }
+    /// }
+    /// </code>
+    /// </example>
+    /// <remarks>
+    /// When a selector is applied:
+    /// - The query returns projected results instead of full entities
+    /// - Include expressions are still applied but may be redundant if all needed data is in the selector
+    /// - Change tracking is automatically disabled for projected queries
+    /// - The projection is translated to SQL SELECT, minimizing data transfer
+    /// </remarks>
+    protected DomainSpecification<T> ApplySelector<TResult>(Expression<Func<T, TResult>> selector)
+    {
+        ArgumentNullException.ThrowIfNull(selector);
+
+        Selector = selector;
+        SelectorResultType = typeof(TResult);
+        DisableTracking = true; // Projections are always read-only
         return this;
     }
 
@@ -352,6 +589,18 @@ public abstract class DomainSpecification<T> : ISpecification<T>
         return this;
     }
 
+    // ===== DISTINCT =====
+
+    /// <summary>
+    /// Configures this specification to return only distinct results.
+    /// </summary>
+    /// <returns>The specification instance for method chaining</returns>
+    protected DomainSpecification<T> ApplyDistinct()
+    {
+        IsDistinct = true;
+        return this;
+    }
+
     // ===== GROUPING =====
 
     /// <summary>
@@ -383,9 +632,9 @@ public abstract class DomainSpecification<T> : ISpecification<T>
     /// <returns>The specification instance for method chaining</returns>
     /// <example>
     /// <code>
-    /// ApplySearch("laptop", 
-    ///     p => p.Name, 
-    ///     p => p.Description, 
+    /// ApplySearch("laptop",
+    ///     p => p.Name,
+    ///     p => p.Description,
     ///     p => p.Brand);
     /// </code>
     /// </example>
@@ -399,6 +648,106 @@ public abstract class DomainSpecification<T> : ISpecification<T>
 
         SearchTerm = searchTerm;
         SearchProperties = searchProperties.ToList().AsReadOnly();
+        return this;
+    }
+
+    // ===== DYNAMIC CRITERIA =====
+
+    /// <summary>
+    /// Adds an additional filter criteria to the specification.
+    /// Multiple criteria are combined with AND logic alongside the main ToExpression() predicate.
+    /// </summary>
+    /// <param name="criteria">The filter expression to add</param>
+    /// <returns>The specification instance for method chaining</returns>
+    /// <example>
+    /// <code>
+    /// public class ProductSearchSpecification : DomainSpecification&lt;Product&gt;
+    /// {
+    ///     public ProductSearchSpecification(string? category, decimal? minPrice, bool? isActive)
+    ///     {
+    ///         AddCriteriaIf(!string.IsNullOrEmpty(category), p => p.Category.Name == category!);
+    ///         AddCriteriaIf(minPrice.HasValue, p => p.Price >= minPrice!.Value);
+    ///         AddCriteriaIf(isActive.HasValue, p => p.IsActive == isActive!.Value);
+    ///     }
+    /// }
+    /// </code>
+    /// </example>
+    protected DomainSpecification<T> AddCriteria(Expression<Func<T, bool>> criteria)
+    {
+        ArgumentNullException.ThrowIfNull(criteria);
+
+        _additionalCriteria.Add(criteria);
+        return this;
+    }
+
+    /// <summary>
+    /// Adds an additional filter criteria only if the condition is true.
+    /// This is ideal for building dynamic queries with optional filters.
+    /// </summary>
+    /// <param name="condition">Whether to add the criteria</param>
+    /// <param name="criteria">The filter expression to add</param>
+    /// <returns>The specification instance for method chaining</returns>
+    /// <example>
+    /// <code>
+    /// AddCriteriaIf(minPrice > 0, p => p.Price >= minPrice);
+    /// AddCriteriaIf(!string.IsNullOrEmpty(searchTerm), p => p.Name.Contains(searchTerm!));
+    /// AddCriteriaIf(categoryId.HasValue, p => p.CategoryId == categoryId!.Value);
+    /// </code>
+    /// </example>
+    protected DomainSpecification<T> AddCriteriaIf(bool condition, Expression<Func<T, bool>> criteria)
+    {
+        if (condition)
+        {
+            ArgumentNullException.ThrowIfNull(criteria);
+            _additionalCriteria.Add(criteria);
+        }
+
+        return this;
+    }
+
+    /// <summary>
+    /// Clears all additional criteria.
+    /// The main ToExpression() predicate is not affected.
+    /// </summary>
+    /// <returns>The specification instance for method chaining</returns>
+    protected DomainSpecification<T> ClearCriteria()
+    {
+        _additionalCriteria.Clear();
+        return this;
+    }
+
+    // ===== CLEAR METHODS =====
+
+    /// <summary>
+    /// Clears all include expressions (expression-based, string-based, and advanced).
+    /// Useful when overriding includes in a derived specification.
+    /// </summary>
+    /// <returns>The specification instance for method chaining</returns>
+    protected DomainSpecification<T> ClearIncludes()
+    {
+        _includes.Clear();
+        _includeExpressions.Clear();
+        _includeStrings.Clear();
+        return this;
+    }
+
+    // ===== DEBUGGING =====
+
+    /// <summary>
+    /// Adds a tag to the query for debugging and logging purposes.
+    /// The tag appears in the generated SQL and can help identify queries in logs.
+    /// </summary>
+    /// <param name="tag">The tag to add to the query</param>
+    /// <returns>The specification instance for method chaining</returns>
+    /// <example>
+    /// <code>
+    /// TagWith("GetActiveProductsForHomePage");
+    /// </code>
+    /// </example>
+    protected DomainSpecification<T> TagWith(string tag)
+    {
+        if (!string.IsNullOrWhiteSpace(tag))
+            QueryTag = tag;
         return this;
     }
 
@@ -443,6 +792,87 @@ public abstract class DomainSpecification<T> : ISpecification<T>
 }
 
 /// <summary>
+/// Interface for building include chains with ThenInclude support
+/// </summary>
+/// <typeparam name="T">The entity type</typeparam>
+/// <typeparam name="TProperty">The included property type</typeparam>
+public interface IIncludeBuilder<T, TProperty>
+    where TProperty : class
+{
+    /// <summary>
+    /// Adds a ThenInclude for a reference navigation property
+    /// </summary>
+    /// <typeparam name="TNextProperty">The type of the nested property</typeparam>
+    /// <param name="navigationExpression">Expression pointing to the nested navigation property</param>
+    /// <returns>An include builder for further chaining</returns>
+    IIncludeBuilder<T, TNextProperty> ThenInclude<TNextProperty>(
+        Expression<Func<TProperty, TNextProperty>> navigationExpression)
+        where TNextProperty : class;
+
+    /// <summary>
+    /// Adds a ThenInclude for a collection navigation property
+    /// </summary>
+    /// <typeparam name="TNextProperty">The type of the items in the collection</typeparam>
+    /// <param name="navigationExpression">Expression pointing to the collection navigation property</param>
+    /// <returns>An include builder for further chaining</returns>
+    IIncludeBuilder<T, TNextProperty> ThenIncludeCollection<TNextProperty>(
+        Expression<Func<TProperty, IEnumerable<TNextProperty>>> navigationExpression)
+        where TNextProperty : class;
+}
+
+/// <summary>
+/// Implementation of include builder for ThenInclude chaining
+/// </summary>
+internal class IncludeBuilder<T, TProperty> : IIncludeBuilder<T, TProperty>
+    where TProperty : class
+{
+    private readonly DomainSpecification<T> _specification;
+    private readonly IncludeExpressionInfo _currentInclude;
+
+    public IncludeBuilder(DomainSpecification<T> specification, IncludeExpressionInfo currentInclude)
+    {
+        _specification = specification;
+        _currentInclude = currentInclude;
+    }
+
+    public IIncludeBuilder<T, TNextProperty> ThenInclude<TNextProperty>(
+        Expression<Func<TProperty, TNextProperty>> navigationExpression)
+        where TNextProperty : class
+    {
+        ArgumentNullException.ThrowIfNull(navigationExpression);
+
+        var info = new IncludeExpressionInfo(
+            navigationExpression,
+            typeof(TProperty),
+            typeof(TNextProperty),
+            _currentInclude,
+            false);
+
+        _specification.AddIncludeExpressionInfo(info);
+
+        return new IncludeBuilder<T, TNextProperty>(_specification, info);
+    }
+
+    public IIncludeBuilder<T, TNextProperty> ThenIncludeCollection<TNextProperty>(
+        Expression<Func<TProperty, IEnumerable<TNextProperty>>> navigationExpression)
+        where TNextProperty : class
+    {
+        ArgumentNullException.ThrowIfNull(navigationExpression);
+
+        var info = new IncludeExpressionInfo(
+            navigationExpression,
+            typeof(TProperty),
+            typeof(TNextProperty),
+            _currentInclude,
+            true);
+
+        _specification.AddIncludeExpressionInfo(info);
+
+        return new IncludeBuilder<T, TNextProperty>(_specification, info);
+    }
+}
+
+/// <summary>
 /// Internal specification implementing logical AND operation
 /// </summary>
 /// <typeparam name="T">The type this specification applies to</typeparam>
@@ -452,7 +882,7 @@ internal class AndSpecification<T>(ISpecification<T> left, ISpecification<T> rig
     {
         return left.IsSatisfiedBy(candidate) && right.IsSatisfiedBy(candidate);
     }
-    
+
     public override Expression<Func<T, bool>> ToExpression()
     {
         var leftExpr = left.ToExpression();
@@ -504,7 +934,7 @@ internal class NotSpecification<T>(ISpecification<T> specification) : DomainSpec
     {
         return !specification.IsSatisfiedBy(candidate);
     }
-    
+
     public override Expression<Func<T, bool>> ToExpression()
     {
         var expr = specification.ToExpression();

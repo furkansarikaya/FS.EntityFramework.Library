@@ -7,7 +7,7 @@
 
         <!-- NuGet Package Metadata -->
         <PackageId>FS.EntityFramework.Library.GuidV7</PackageId>
-        <Version>10.0.1</Version>
+        <Version>10.0.2</Version>
         <Authors>Furkan SARIKAYA</Authors>
         <Company>Furkan SARIKAYA</Company>
         <Product>FS EntityFramework Library - GUID Version 7 Extension</Product>
@@ -77,7 +77,7 @@
         <PackageReadmeFile>README.md</PackageReadmeFile>
 
         <!-- Package Icon -->
-        <PackageIconFile>icon.png</PackageIconFile>
+        <PackageIcon>icon.png</PackageIcon>
 
         <!-- Symbol Package -->
         <IncludeSymbols>true</IncludeSymbols>
@@ -92,7 +92,7 @@
 
     <!-- Release Mode: Use PackageReference for proper NuGet dependency -->
     <ItemGroup Condition="'$(Configuration)' == 'Release' AND '$(UseProjectReferences)' != 'true'">
-        <PackageReference Include="FS.EntityFramework.Library" Version="10.0.1" />
+        <PackageReference Include="FS.EntityFramework.Library" Version="10.0.2" />
     </ItemGroup>
 
     <!-- No external dependencies for GUID V7 - uses .NET 9 native support -->

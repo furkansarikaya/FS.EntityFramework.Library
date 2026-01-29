@@ -458,6 +458,294 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
     /// <returns>An IQueryable for the entity type</returns>
     public virtual IQueryable<TEntity> GetQueryable(bool disableTracking = true) => disableTracking ? DbSet.AsNoTracking() : DbSet;
 
+    /// <inheritdoc />
+    public virtual async Task<TEntity?> SingleOrDefaultAsync(
+        Expression<Func<TEntity, bool>> predicate,
+        List<Expression<Func<TEntity, object>>>? includes = null,
+        bool disableTracking = true,
+        CancellationToken cancellationToken = default)
+    {
+        var query = GetQueryable(disableTracking);
+
+        if (includes != null && includes.Count != 0)
+        {
+            query = query.ApplyInclude(includes);
+        }
+
+        return await query.SingleOrDefaultAsync(predicate, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public virtual async Task<bool> AnyAsync(
+        Expression<Func<TEntity, bool>>? predicate = null,
+        CancellationToken cancellationToken = default)
+    {
+        var query = GetQueryable(true);
+
+        return predicate == null
+            ? await query.AnyAsync(cancellationToken)
+            : await query.AnyAsync(predicate, cancellationToken);
+    }
+
+    #region Projection Methods Implementation
+
+    /// <inheritdoc />
+    public virtual async Task<TResult?> GetByIdAsync<TResult>(
+        TKey id,
+        Expression<Func<TEntity, TResult>> selector,
+        CancellationToken cancellationToken = default)
+    {
+        return await DbSet
+            .AsNoTracking()
+            .Where(e => e.Id.Equals(id))
+            .Select(selector)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public virtual async Task<IReadOnlyList<TResult>> GetAllAsync<TResult>(
+        Expression<Func<TEntity, TResult>> selector,
+        CancellationToken cancellationToken = default)
+    {
+        return await DbSet
+            .AsNoTracking()
+            .Select(selector)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public virtual async Task<TResult?> FirstOrDefaultAsync<TResult>(
+        Expression<Func<TEntity, bool>> predicate,
+        Expression<Func<TEntity, TResult>> selector,
+        CancellationToken cancellationToken = default)
+    {
+        return await DbSet
+            .AsNoTracking()
+            .Where(predicate)
+            .Select(selector)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public virtual async Task<TResult> SingleOrDefaultAsync<TResult>(
+        Expression<Func<TEntity, bool>> predicate,
+        Expression<Func<TEntity, TResult>> selector,
+        CancellationToken cancellationToken = default)
+    {
+        return await DbSet
+            .AsNoTracking()
+            .Where(predicate)
+            .Select(selector)
+            .SingleAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public virtual async Task<IEnumerable<TResult>> FindAsync<TResult>(
+        Expression<Func<TEntity, bool>> predicate,
+        Expression<Func<TEntity, TResult>> selector,
+        Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>>? orderBy = null,
+        CancellationToken cancellationToken = default)
+    {
+        var query = DbSet.AsNoTracking().Where(predicate);
+
+        if (orderBy != null)
+            query = orderBy(query);
+
+        return await query.Select(selector).ToListAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public virtual async Task<IPaginate<TResult>> GetPagedAsync<TResult>(
+        Expression<Func<TEntity, TResult>> selector,
+        int pageIndex,
+        int pageSize,
+        Expression<Func<TEntity, bool>>? predicate = null,
+        Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>>? orderBy = null,
+        CancellationToken cancellationToken = default)
+    {
+        var query = DbSet.AsNoTracking();
+
+        if (predicate != null)
+            query = query.Where(predicate);
+
+        if (orderBy != null)
+            query = orderBy(query);
+
+        return await query.Select(selector).ToPaginateAsync(pageIndex, pageSize, 0, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public virtual async Task<IPaginate<TResult>> GetPagedWithFilterAsync<TResult>(
+        Expression<Func<TEntity, TResult>> selector,
+        FilterModel filter,
+        int pageIndex,
+        int pageSize,
+        Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>>? orderBy = null,
+        CancellationToken cancellationToken = default)
+    {
+        var query = DbSet.AsNoTracking().ApplyFilter(filter);
+
+        if (orderBy != null)
+            query = orderBy(query);
+
+        return await query.Select(selector).ToPaginateAsync(pageIndex, pageSize, 0, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public virtual async Task<IReadOnlyList<TResult>> GetAsync<TResult>(
+        BaseSpecification<TEntity> spec,
+        Expression<Func<TEntity, TResult>> selector,
+        CancellationToken cancellationToken = default)
+    {
+        return await ApplySpecification(spec).Select(selector).ToListAsync(cancellationToken);
+    }
+
+    #endregion
+
+    #region Cursor-Based Pagination Implementation
+
+    /// <inheritdoc />
+    public virtual async Task<ICursorPaginate<TEntity, TCursor>> GetCursorPagedAsync<TCursor>(
+        int pageSize,
+        TCursor? afterCursor,
+        TCursor? beforeCursor,
+        Expression<Func<TEntity, TCursor>> cursorSelector,
+        Expression<Func<TEntity, bool>>? predicate = null,
+        Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>>? orderBy = null,
+        List<Expression<Func<TEntity, object>>>? includes = null,
+        bool disableTracking = true,
+        CancellationToken cancellationToken = default) where TCursor : IComparable<TCursor>
+    {
+        var query = GetQueryable(disableTracking);
+
+        if (predicate != null)
+            query = query.Where(predicate);
+
+        if (includes != null && includes.Count != 0)
+            query = query.ApplyInclude(includes);
+
+        // Build cursor comparison
+        var parameter = cursorSelector.Parameters[0];
+        var cursorBody = cursorSelector.Body;
+
+        if (afterCursor != null)
+        {
+            var afterComparison = Expression.GreaterThan(cursorBody, Expression.Constant(afterCursor, typeof(TCursor)));
+            var afterLambda = Expression.Lambda<Func<TEntity, bool>>(afterComparison, parameter);
+            query = query.Where(afterLambda);
+        }
+        else if (beforeCursor != null)
+        {
+            var beforeComparison = Expression.LessThan(cursorBody, Expression.Constant(beforeCursor, typeof(TCursor)));
+            var beforeLambda = Expression.Lambda<Func<TEntity, bool>>(beforeComparison, parameter);
+            query = query.Where(beforeLambda);
+        }
+
+        // Apply ordering or default to cursor ascending
+        if (orderBy != null)
+            query = orderBy(query);
+        else
+            query = query.OrderBy(cursorSelector);
+
+        // Fetch one extra to determine if there are more
+        var items = await query.Take(pageSize + 1).ToListAsync(cancellationToken);
+        var hasNext = items.Count > pageSize;
+
+        if (hasNext)
+            items = items.Take(pageSize).ToList();
+
+        var compiledSelector = cursorSelector.Compile();
+
+        return new CursorPaginate<TEntity, TCursor>
+        {
+            Items = items,
+            Size = pageSize,
+            HasNext = hasNext,
+            HasPrevious = afterCursor != null,
+            FirstCursor = items.Count > 0 ? compiledSelector(items[0]) : default,
+            LastCursor = items.Count > 0 ? compiledSelector(items[^1]) : default
+        };
+    }
+
+    /// <inheritdoc />
+    public virtual async Task<ICursorPaginate<TResult, TCursor>> GetCursorPagedAsync<TResult, TCursor>(
+        Expression<Func<TEntity, TResult>> selector,
+        int pageSize,
+        TCursor? afterCursor,
+        TCursor? beforeCursor,
+        Expression<Func<TEntity, TCursor>> cursorSelector,
+        Expression<Func<TEntity, bool>>? predicate = null,
+        Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>>? orderBy = null,
+        CancellationToken cancellationToken = default) where TCursor : IComparable<TCursor>
+    {
+        var query = DbSet.AsNoTracking();
+
+        if (predicate != null)
+            query = query.Where(predicate);
+
+        var parameter = cursorSelector.Parameters[0];
+        var cursorBody = cursorSelector.Body;
+
+        if (afterCursor != null)
+        {
+            var afterComparison = Expression.GreaterThan(cursorBody, Expression.Constant(afterCursor, typeof(TCursor)));
+            var afterLambda = Expression.Lambda<Func<TEntity, bool>>(afterComparison, parameter);
+            query = query.Where(afterLambda);
+        }
+        else if (beforeCursor != null)
+        {
+            var beforeComparison = Expression.LessThan(cursorBody, Expression.Constant(beforeCursor, typeof(TCursor)));
+            var beforeLambda = Expression.Lambda<Func<TEntity, bool>>(beforeComparison, parameter);
+            query = query.Where(beforeLambda);
+        }
+
+        if (orderBy != null)
+            query = orderBy(query);
+        else
+            query = query.OrderBy(cursorSelector);
+
+        // We need to get cursors before projection, so we project with cursor
+        var combinedSelector = BuildCombinedSelector(selector, cursorSelector);
+        var items = await query.Take(pageSize + 1).Select(combinedSelector).ToListAsync(cancellationToken);
+
+        var hasNext = items.Count > pageSize;
+        if (hasNext)
+            items = items.Take(pageSize).ToList();
+
+        return new CursorPaginate<TResult, TCursor>
+        {
+            Items = items.Select(x => x.Result).ToList(),
+            Size = pageSize,
+            HasNext = hasNext,
+            HasPrevious = afterCursor != null,
+            FirstCursor = items.Count > 0 ? items[0].Cursor : default,
+            LastCursor = items.Count > 0 ? items[^1].Cursor : default
+        };
+    }
+
+    private static Expression<Func<TEntity, (TResult Result, TCursor Cursor)>> BuildCombinedSelector<TResult, TCursor>(
+        Expression<Func<TEntity, TResult>> selector,
+        Expression<Func<TEntity, TCursor>> cursorSelector)
+    {
+        var parameter = Expression.Parameter(typeof(TEntity), "e");
+
+        var resultBody = new ParameterReplacer(parameter).Visit(selector.Body);
+        var cursorBody = new ParameterReplacer(parameter).Visit(cursorSelector.Body);
+
+        var tupleType = typeof(ValueTuple<TResult, TCursor>);
+        var tupleConstructor = tupleType.GetConstructor([typeof(TResult), typeof(TCursor)])!;
+        var newTuple = Expression.New(tupleConstructor, resultBody, cursorBody);
+
+        return Expression.Lambda<Func<TEntity, (TResult Result, TCursor Cursor)>>(newTuple, parameter);
+    }
+
+    private class ParameterReplacer(ParameterExpression newParameter) : ExpressionVisitor
+    {
+        protected override Expression VisitParameter(ParameterExpression node) => newParameter;
+    }
+
+    #endregion
+
     /// <summary>
     /// Applies a specification to the queryable and returns the configured query
     /// </summary>
