@@ -1,8 +1,13 @@
 namespace FS.EntityFramework.Library.Models;
 
 /// <summary>
-/// Model for dynamic filtering of entities.
-/// Contains an optional full-text search term and a list of field-level filter criteria.
+/// Model for dynamic filtering, sorting, and grouping of entities.
+/// Contains an optional full-text search term, a list of field-level filter criteria,
+/// logical filter groups (for OR/AND composition), and sort criteria.
+/// <para>
+/// Use <see cref="FilterBuilder"/> or <see cref="FilterBuilder{T}"/> fluent API
+/// for type-safe construction.
+/// </para>
 /// </summary>
 public class FilterModel
 {
@@ -17,6 +22,27 @@ public class FilterModel
     /// Multiple filters are combined using AND logic.
     /// </summary>
     public List<FilterItem> Filters { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets the list of filter groups for complex logical composition.
+    /// Each group's internal filters are combined using the group's <see cref="FilterGroup.Logic"/> (AND or OR).
+    /// Multiple groups are combined with AND between them.
+    /// <para>
+    /// Example: <c>WHERE (base filters) AND (group1: A OR B) AND (group2: C AND D)</c>
+    /// </para>
+    /// </summary>
+    public List<FilterGroup> FilterGroups { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets the list of sort criteria.
+    /// Sort items are applied in order: the first becomes <c>OrderBy</c>,
+    /// subsequent items become <c>ThenBy</c>.
+    /// <para>
+    /// When used with repository methods that accept an <c>orderBy</c> parameter,
+    /// the explicit <c>orderBy</c> parameter takes precedence over this list.
+    /// </para>
+    /// </summary>
+    public List<SortItem> Sorts { get; set; } = [];
 }
 
 /// <summary>

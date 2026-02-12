@@ -452,12 +452,13 @@ public record CreateProductRequest(string Name, decimal Price, string Descriptio
 
 ### Step 8: Implement Dynamic Filtering
 
-The library provides powerful dynamic filtering capabilities with a type-safe fluent API.
+The library provides a comprehensive, type-safe dynamic filtering system with fluent API, OR/AND groups, sorting, convenience methods, and reusable scopes.
 
-#### Type-Safe Filtering with FilterBuilder (Recommended)
+#### Strongly-Typed FilterBuilder\<T\> (Recommended)
+
+The generic `FilterBuilder<T>` provides compile-time validated field names, IntelliSense, and automatic value conversion:
 
 ```csharp
-// Services/ProductSearchService.cs
 using FS.EntityFramework.Library.Models;
 
 public class ProductSearchService
@@ -473,23 +474,25 @@ public class ProductSearchService
     {
         var repository = _unitOfWork.GetRepository<Product, int>();
 
-        // Type-safe fluent API with compile-time validated operators
-        var filter = FilterBuilder.Create()
+        // Fully type-safe: field names, operators, and values validated at compile-time
+        var filter = FilterBuilder<Product>.Create()
             .Search(request.SearchTerm)
-            .WhereIf(request.MinPrice.HasValue, nameof(Product.Price),
-                     FilterOperator.GreaterThanOrEqual, request.MinPrice?.ToString())
-            .WhereIf(request.MaxPrice.HasValue, nameof(Product.Price),
-                     FilterOperator.LessThanOrEqual, request.MaxPrice?.ToString())
-            .WhereIf(request.CategoryId.HasValue, nameof(Product.CategoryId),
-                     FilterOperator.Equals, request.CategoryId?.ToString())
-            .WhereIsNull(nameof(Product.DeletedAt))
+            .WhereIf(request.MinPrice.HasValue, p => p.Price,
+                     FilterOperator.GreaterThanOrEqual, request.MinPrice)
+            .WhereIf(request.MaxPrice.HasValue, p => p.Price,
+                     FilterOperator.LessThanOrEqual, request.MaxPrice)
+            .WhereIf(request.CategoryId.HasValue, p => p.CategoryId,
+                     FilterOperator.Equals, request.CategoryId)
+            .WhereIsNull(p => p.DeletedAt)
+            .OrderByDescending(p => p.CreatedAt)
+            .OrderBy(p => p.Name)
             .Build();
 
+        // Sorting is built into the filter model — no separate orderBy needed
         return await repository.GetPagedWithFilterAsync(
             filter,
             request.Page,
             request.PageSize,
-            orderBy: query => query.OrderBy(p => p.Name),
             includes: new List<Expression<Func<Product, object>>> { p => p.Category }
         );
     }
@@ -504,9 +507,97 @@ public record ProductFilterRequest(
     int PageSize = 10);
 ```
 
-#### Type-Safe FilterItem Constructor
+#### Convenience Methods: WhereBetween & WhereDateRange
 
-You can also construct filter items directly with the type-safe enum:
+```csharp
+// Price range in a single call (adds >= and <= filters)
+var filter = FilterBuilder<Product>.Create()
+    .WhereBetween(p => p.Price, 100m, 999m)
+    .WhereDateRange(p => p.CreatedAt, DateTime.Today.AddDays(-30), DateTime.Today)
+    .Build();
+```
+
+#### OR / AND Groups
+
+Build complex logical expressions with grouped filters:
+
+```csharp
+var filter = FilterBuilder<Product>.Create()
+    .WhereEquals(p => p.IsActive, true)
+    .OrGroup(g => g                                    // AND (
+        .WhereGreaterThan(p => p.Price, 1000m)         //   Price > 1000
+        .WhereEquals(p => p.IsFeatured, true))         //   OR IsFeatured = true )
+    .Build();
+// SQL: WHERE IsActive = 1 AND (Price > 1000 OR IsFeatured = 1)
+```
+
+#### Set Operators: WhereIn & WhereNotIn
+
+```csharp
+var filter = FilterBuilder<Product>.Create()
+    .WhereIn(p => p.Status, 1, 2, 3)                  // WHERE Status IN (1, 2, 3)
+    .WhereNotIn(p => p.CategoryId, 5, 10)              // AND CategoryId NOT IN (5, 10)
+    .Build();
+```
+
+#### Reusable Filter Scopes
+
+Extract common filter combinations into reusable scopes:
+
+```csharp
+// Define a reusable scope
+public class ActiveProductScope : IFilterScope<Product>
+{
+    public void Apply(FilterBuilder<Product> builder)
+    {
+        builder
+            .WhereEquals(p => p.IsActive, true)
+            .WhereIsNull(p => p.DeletedAt);
+    }
+}
+
+// Apply across different queries
+var filter = FilterBuilder<Product>.Create()
+    .ApplyScope(new ActiveProductScope())
+    .WhereBetween(p => p.Price, 50m, 500m)
+    .OrderBy(p => p.Name)
+    .Build();
+```
+
+#### Dynamic Sorting via FilterModel
+
+Sorting can be defined in the filter model and is automatically applied by the repository:
+
+```csharp
+var filter = FilterBuilder<Product>.Create()
+    .WhereGreaterThan(p => p.Price, 100m)
+    .OrderByDescending(p => p.CreatedAt)    // Primary sort
+    .OrderBy(p => p.Name)                   // ThenBy
+    .Build();
+
+// No orderBy parameter needed — sorts are applied from FilterModel.Sorts
+var result = await repository.GetPagedWithFilterAsync(filter, pageIndex: 0, pageSize: 20);
+
+// Explicit orderBy parameter still takes precedence when provided
+```
+
+#### String-Based FilterBuilder (API/JSON Scenarios)
+
+The non-generic `FilterBuilder` is available for scenarios where the entity type isn't known at compile time (e.g., API controllers receiving filter JSON):
+
+```csharp
+var filter = FilterBuilder.Create()
+    .Search("laptop")
+    .WhereGreaterThanOrEqual(nameof(Product.Price), "500")
+    .WhereBetween(nameof(Product.Price), "100", "999")
+    .OrGroup(g => g
+        .WhereEquals("CategoryId", "1")
+        .WhereEquals("CategoryId", "2"))
+    .OrderByDescending(nameof(Product.CreatedAt))
+    .Build();
+```
+
+#### Direct FilterItem Constructor
 
 ```csharp
 var filter = new FilterModel
@@ -522,7 +613,7 @@ var filter = new FilterModel
 };
 ```
 
-#### String-Based Filtering (Backward Compatible)
+#### Backward-Compatible String Syntax
 
 The original string-based API still works and now supports short aliases:
 
@@ -1672,6 +1763,8 @@ var filteredPage = await repository.GetPagedWithFilterAsync(
 // "greaterthan" (gt), "greaterthanorequal" (gte), "lessthan" (lt), "lessthanorequal" (lte)
 // "isnull", "isnotnull", "isempty", "isnotempty" (no value required)
 // "in", "notin" (comma-separated values, e.g. "1,2,3")
+//
+// Or use the type-safe FilterOperator enum / FilterBuilder<T> for compile-time validation
 ```
 
 #### Cursor-Based Pagination (v10.0.2+)

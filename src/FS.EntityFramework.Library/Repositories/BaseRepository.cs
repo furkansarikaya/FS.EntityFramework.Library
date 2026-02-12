@@ -396,8 +396,12 @@ public class BaseRepository<TEntity, TKey>(DbContext context, FSEntityFrameworkM
             query = query.AsNoTracking();
 
         query = query.ApplyFilter(filter)
-            .ApplyInclude(includes)
-            .ApplyOrder(orderBy);
+            .ApplyInclude(includes);
+
+        // Explicit orderBy takes precedence; fallback to FilterModel.Sorts
+        query = orderBy != null
+            ? query.ApplyOrder(orderBy)
+            : query.ApplySort(filter);
 
         return await query.ToPaginateAsync(pageIndex, pageSize, 0, cancellationToken);
     }
@@ -606,8 +610,10 @@ public class BaseRepository<TEntity, TKey>(DbContext context, FSEntityFrameworkM
     {
         var query = DbSet.AsNoTracking().ApplyFilter(filter);
 
-        if (orderBy != null)
-            query = orderBy(query);
+        // Explicit orderBy takes precedence; fallback to FilterModel.Sorts
+        query = orderBy != null
+            ? orderBy(query)
+            : query.ApplySort(filter);
 
         return await query.Select(selector).ToPaginateAsync(pageIndex, pageSize, 0, cancellationToken);
     }

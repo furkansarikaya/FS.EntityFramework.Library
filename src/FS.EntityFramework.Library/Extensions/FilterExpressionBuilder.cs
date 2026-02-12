@@ -91,7 +91,7 @@ public static partial class FilterExpressionBuilder
             hasFilter = true;
         }
 
-        // Özel filtreler
+        // Özel filtreler (AND logic)
         foreach (var filterExpression in filter.Filters.Select(filterItem => BuildFilterItemExpression<T>(parameter, filterItem)))
         {
             if (hasFilter)
@@ -101,6 +101,24 @@ public static partial class FilterExpressionBuilder
             else
             {
                 body = filterExpression;
+                hasFilter = true;
+            }
+        }
+
+        // Filter groups (OR/AND groups combined with AND between them)
+        foreach (var group in filter.FilterGroups)
+        {
+            if (group.Filters.Count == 0) continue;
+
+            var groupExpression = BuildFilterGroupExpression<T>(parameter, group);
+
+            if (hasFilter)
+            {
+                body = Expression.AndAlso(body, groupExpression);
+            }
+            else
+            {
+                body = groupExpression;
                 hasFilter = true;
             }
         }
@@ -146,6 +164,37 @@ public static partial class FilterExpressionBuilder
         }
 
         return combinedExpression ?? Expression.Constant(true);
+    }
+
+    /// <summary>
+    /// Builds a combined expression for a <see cref="FilterGroup"/> by combining its filters
+    /// using the group's <see cref="FilterLogic"/> (AND or OR).
+    /// </summary>
+    /// <typeparam name="T">The entity type</typeparam>
+    /// <param name="parameter">The parameter expression for the entity</param>
+    /// <param name="group">The filter group containing filters and logic operator</param>
+    /// <returns>A combined expression for the group</returns>
+    private static Expression BuildFilterGroupExpression<T>(ParameterExpression parameter, FilterGroup group)
+    {
+        Expression? combined = null;
+
+        foreach (var filterItem in group.Filters)
+        {
+            var itemExpression = BuildFilterItemExpression<T>(parameter, filterItem);
+
+            if (combined == null)
+            {
+                combined = itemExpression;
+            }
+            else
+            {
+                combined = group.Logic == FilterLogic.Or
+                    ? Expression.OrElse(combined, itemExpression)
+                    : Expression.AndAlso(combined, itemExpression);
+            }
+        }
+
+        return combined ?? Expression.Constant(true);
     }
 
     /// <summary>

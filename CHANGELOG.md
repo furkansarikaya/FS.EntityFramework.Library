@@ -37,11 +37,18 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - **FilterOperator**: Type-safe enum with 15 operators and full IntelliSense support — eliminates string-based operator errors at compile time
-- **FilterBuilder**: Fluent API for constructing filters (`FilterBuilder.Create().WhereEquals(...).WhereIsNull(...).Build()`)
+- **FilterBuilder**: Non-generic fluent API for constructing filters (`FilterBuilder.Create().WhereEquals(...).WhereIsNull(...).Build()`)
+- **FilterBuilder\<T\>**: Strongly-typed generic fluent builder with lambda-based field selection — compile-time validated field names, IntelliSense for properties, navigation property support (`p => p.Category.Name`)
 - **FilterItem constructor**: New `FilterItem(string field, FilterOperator op, string? value)` constructor for type-safe filter creation
 - **New filter operators**: `IsNull`, `IsNotNull`, `IsEmpty`, `IsNotEmpty`, `In`, `NotIn` — all fully implemented in FilterExpressionBuilder
 - **Operator aliases**: Short aliases for all operators (`eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `sw`, `ew`)
 - **WhereIf**: Conditional filter method in FilterBuilder for building dynamic filters from optional parameters
+- **WhereBetween / WhereDateRange**: Convenience methods for inclusive range filters (adds `>=` and `<=` in one call)
+- **OR / AND Groups**: `OrGroup()` and `AndGroup()` methods for complex logical composition (`WHERE x AND (A OR B)`)
+- **FilterGroup / FilterLogic**: New model classes for grouped filter expressions with configurable AND/OR logic
+- **Dynamic Sorting**: `SortItem` / `SortDirection` model classes, `OrderBy()` / `OrderByDescending()` methods in FilterBuilder, automatic `ApplySort` from `FilterModel.Sorts` in repository (falls back when no explicit `orderBy` parameter is provided)
+- **IFilterScope\<T\>**: Interface for reusable, composable filter scopes — encapsulate common filter combinations (`ActiveProductScope`, `SoftDeleteScope`, etc.) and apply via `FilterBuilder<T>.ApplyScope()`
+- **FilterExpressionHelper**: Internal utility for extracting property paths from lambda expressions and culture-safe value conversion
 - **FSEntityFrameworkMetrics**: New opt-in OpenTelemetry-compatible metrics system using `System.Diagnostics.Metrics`
   - Repository operation counters, error counters, and duration histograms
   - UnitOfWork save/transaction/cache metrics
