@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using System.Linq.Expressions;
 using FS.EntityFramework.Library.Common;
+using FS.EntityFramework.Library.Diagnostics;
 using FS.EntityFramework.Library.Extensions;
 using FS.EntityFramework.Library.Interfaces;
 using FS.EntityFramework.Library.Models;
@@ -15,7 +17,7 @@ namespace FS.EntityFramework.Library.Repositories;
 /// </summary>
 /// <typeparam name="TEntity">The entity type that inherits from BaseEntity</typeparam>
 /// <typeparam name="TKey">The type of the entity's primary key</typeparam>
-public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEntity, TKey>
+public class BaseRepository<TEntity, TKey>(DbContext context, FSEntityFrameworkMetrics? metrics = null) : IRepository<TEntity, TKey>
     where TEntity : BaseEntity<TKey>
     where TKey : IEquatable<TKey>
 {
@@ -42,13 +44,14 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
         bool disableTracking = false,
         CancellationToken cancellationToken = default)
     {
+        metrics?.RecordRepositoryOperation("query");
         var query = GetQueryable(disableTracking);
-    
+
         if (includes != null && includes.Count != 0)
         {
             query = query.ApplyInclude(includes);
         }
-    
+
         return await query.FirstOrDefaultAsync(e => e.Id.Equals(id), cancellationToken);
     }
 
@@ -82,10 +85,24 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
     /// <returns>The added entity</returns>
     public virtual async Task<TEntity> AddAsync(TEntity entity, bool saveChanges = false, CancellationToken cancellationToken = default)
     {
-        await DbSet.AddAsync(entity, cancellationToken);
-        if (saveChanges)
-            await SaveChangesAsync(cancellationToken);
-        return entity;
+        var sw = metrics != null ? Stopwatch.StartNew() : null;
+        try
+        {
+            await DbSet.AddAsync(entity, cancellationToken);
+            if (saveChanges)
+                await SaveChangesAsync(cancellationToken);
+            metrics?.RecordRepositoryOperation("add");
+            return entity;
+        }
+        catch (Exception ex)
+        {
+            metrics?.RecordRepositoryError("add", ex.GetType().Name);
+            throw;
+        }
+        finally
+        {
+            if (sw != null) metrics?.RecordRepositoryDuration("add", sw.Elapsed.TotalMilliseconds);
+        }
     }
 
     /// <summary>
@@ -96,6 +113,7 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
     /// <param name="cancellationToken">Cancellation token</param>
     public virtual async Task UpdateAsync(TEntity entity, bool saveChanges = false, CancellationToken cancellationToken = default)
     {
+        metrics?.RecordRepositoryOperation("update");
         Context.Entry(entity).State = EntityState.Modified;
         if (saveChanges)
             await SaveChangesAsync(cancellationToken);
@@ -109,6 +127,7 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
     /// <param name="cancellationToken">Cancellation token</param>
     public virtual async Task DeleteAsync(TEntity entity, bool saveChanges = false, CancellationToken cancellationToken = default)
     {
+        metrics?.RecordRepositoryOperation("delete");
         Context.Entry(entity).State = EntityState.Deleted;
 
         if (saveChanges)
@@ -195,6 +214,7 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
     /// <param name="cancellationToken">Cancellation token</param>
     public async Task BulkInsertAsync(IEnumerable<TEntity> entities, bool saveChanges = false, CancellationToken cancellationToken = default)
     {
+        metrics?.RecordRepositoryOperation("bulk_insert");
         await DbSet.AddRangeAsync(entities, cancellationToken);
         if (saveChanges)
             await SaveChangesAsync(cancellationToken);
@@ -221,7 +241,8 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
     /// <param name="cancellationToken">Cancellation token</param>
     public async Task BulkDeleteAsync(Expression<Func<TEntity, bool>> predicate, bool saveChanges = false, CancellationToken cancellationToken = default)
     {
-        var hasIsDeleted = typeof(TEntity).GetProperty("IsDeleted") != null;
+        metrics?.RecordRepositoryOperation("bulk_delete");
+        var hasIsDeleted = typeof(ISoftDelete).IsAssignableFrom(typeof(TEntity));
         if (hasIsDeleted)
         {
             var entities = await DbSet.Where(predicate).ToListAsync(cancellationToken);
@@ -527,7 +548,7 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
     }
 
     /// <inheritdoc />
-    public virtual async Task<TResult> SingleOrDefaultAsync<TResult>(
+    public virtual async Task<TResult?> SingleOrDefaultAsync<TResult>(
         Expression<Func<TEntity, bool>> predicate,
         Expression<Func<TEntity, TResult>> selector,
         CancellationToken cancellationToken = default)
@@ -536,7 +557,7 @@ public class BaseRepository<TEntity, TKey>(DbContext context) : IRepository<TEnt
             .AsNoTracking()
             .Where(predicate)
             .Select(selector)
-            .SingleAsync(cancellationToken);
+            .SingleOrDefaultAsync(cancellationToken);
     }
 
     /// <inheritdoc />

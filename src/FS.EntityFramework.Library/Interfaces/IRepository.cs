@@ -374,11 +374,11 @@ public interface IRepository<TEntity, in TKey>
     /// <param name="predicate">A filter expression that should match exactly one entity.</param>
     /// <param name="selector">A projection expression defining the transformation.</param>
     /// <param name="cancellationToken">A token to cancel the asynchronous operation.</param>
-    /// <returns>The projected result.</returns>
+    /// <returns>The projected result, or default if no entity matches.</returns>
     /// <exception cref="InvalidOperationException">
-    /// Thrown when no entity matches the predicate or when more than one entity matches.
+    /// Thrown when more than one entity matches the predicate.
     /// </exception>
-    Task<TResult> SingleOrDefaultAsync<TResult>(
+    Task<TResult?> SingleOrDefaultAsync<TResult>(
         Expression<Func<TEntity, bool>> predicate,
         Expression<Func<TEntity, TResult>> selector,
         CancellationToken cancellationToken = default);

@@ -1,5 +1,8 @@
+using System.Collections.Concurrent;
+using System.Reflection;
 using FS.EntityFramework.Library.Abstractions;
 using FS.EntityFramework.Library.Common;
+using FS.EntityFramework.Library.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
@@ -12,14 +15,27 @@ namespace FS.EntityFramework.Library.Interceptors;
 public class IdGenerationInterceptor : SaveChangesInterceptor
 {
     private readonly IIdGeneratorFactory _idGeneratorFactory;
+    private readonly FSEntityFrameworkMetrics? _metrics;
+
+    /// <summary>
+    /// Cache for BaseEntity type hierarchy lookups
+    /// </summary>
+    private static readonly ConcurrentDictionary<Type, Type?> BaseEntityTypeCache = new();
+
+    /// <summary>
+    /// Cache for Id PropertyInfo lookups
+    /// </summary>
+    private static readonly ConcurrentDictionary<Type, PropertyInfo?> IdPropertyCache = new();
 
     /// <summary>
     /// Initializes the interceptor with the ID generator factory
     /// </summary>
     /// <param name="idGeneratorFactory">Factory for resolving ID generators by type</param>
-    public IdGenerationInterceptor(IIdGeneratorFactory idGeneratorFactory)
+    /// <param name="metrics">Optional metrics instance</param>
+    public IdGenerationInterceptor(IIdGeneratorFactory idGeneratorFactory, FSEntityFrameworkMetrics? metrics = null)
     {
         _idGeneratorFactory = idGeneratorFactory;
+        _metrics = metrics;
     }
 
     /// <summary>
@@ -60,38 +76,39 @@ public class IdGenerationInterceptor : SaveChangesInterceptor
         {
             var entity = entry.Entity;
             var entityType = entity.GetType();
-        
-            var baseEntityType = GetBaseEntityType(entityType);
+
+            var baseEntityType = BaseEntityTypeCache.GetOrAdd(entityType, static t => GetBaseEntityType(t));
             if (baseEntityType == null) continue;
 
             var keyType = baseEntityType.GetGenericArguments()[0];
-            var idProperty = entityType.GetProperty("Id");
-        
+            var idProperty = IdPropertyCache.GetOrAdd(entityType, static t => t.GetProperty("Id"));
+
             if (idProperty == null) continue;
 
             var currentValue = idProperty.GetValue(entity);
 
             // FIXED: Improved default value detection for nullable types
             if (!IsDefaultValue(currentValue, keyType)) continue;
-            
+
             var generator = _idGeneratorFactory.GetGeneratorForType(keyType);
             if (generator == null) continue;
-            
+
             var newId = generator.Generate();
-                
+
             if (newId != null)
             {
                 idProperty.SetValue(entity, newId);
+                _metrics?.RecordIdGeneration(keyType.Name);
             }
         }
     }
 
     /// <summary>
-    /// Finds the BaseEntity<TKey> type in the inheritance hierarchy.
+    /// Finds the BaseEntity type in the inheritance hierarchy.
     /// This method walks up the inheritance chain to find our base entity.
     /// </summary>
     /// <param name="type">The entity type to examine</param>
-    /// <returns>The BaseEntity<TKey> type or null if not found</returns>
+    /// <returns>The BaseEntity type or null if not found</returns>
     private static Type? GetBaseEntityType(Type type)
     {
         var current = type;
@@ -116,28 +133,26 @@ public class IdGenerationInterceptor : SaveChangesInterceptor
     private static bool IsDefaultValue(object? value, Type type)
     {
         // Handle null values first
-        if (value == null) 
+        if (value == null)
         {
             // For reference types and nullable value types, null is indeed default
             return !type.IsValueType || Nullable.GetUnderlyingType(type) != null;
         }
-        
+
         // CRITICAL FIX: Handle nullable value types properly
-        // For nullable types like int?, Guid?, the underlying type is what matters
-        var underlyingType = Nullable.GetUnderlyingType(type);
-        if (underlyingType != null)
-        {
-            // This is a nullable type (int?, Guid?, etc.)
-            // If we have a non-null value, check if it's the default of the underlying type
-            var underlyingDefault = GetDefaultValue(underlyingType);
-            return Equals(value, underlyingDefault);
-        }
-        
-        // For regular value types and reference types
-        var defaultValue = GetDefaultValue(type);
+        var underlyingType = Nullable.GetUnderlyingType(type) ?? type;
+
+        // Fast path for common types (avoids boxing via Activator.CreateInstance)
+        if (underlyingType == typeof(int)) return (int)value == 0;
+        if (underlyingType == typeof(long)) return (long)value == 0L;
+        if (underlyingType == typeof(Guid)) return (Guid)value == Guid.Empty;
+        if (underlyingType == typeof(string)) return value is null or "";
+
+        // Fallback for other types
+        var defaultValue = GetDefaultValue(underlyingType);
         return Equals(value, defaultValue);
     }
-    
+
     /// <summary>
     /// Helper method to get the actual default value for a type
     /// This handles both value types and reference types correctly
@@ -149,7 +164,6 @@ public class IdGenerationInterceptor : SaveChangesInterceptor
         // For reference types, default is null
         return !type.IsValueType ? null :
             // For value types, use Activator.CreateInstance to get default
-            // This handles: int=0, Guid=Guid.Empty, DateTime=DateTime.MinValue, etc.
             Activator.CreateInstance(type);
     }
 }

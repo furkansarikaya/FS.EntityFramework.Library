@@ -1,3 +1,4 @@
+using FS.EntityFramework.Library.Diagnostics;
 using FS.EntityFramework.Library.Interceptors;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -36,7 +37,8 @@ internal class AuditConfigurationBuilder : IAuditConfigurationBuilder
         {
             var userProvider = () => getCurrentUser(provider);
             Func<DateTime>? timeProvider = getCurrentTime != null ? () => getCurrentTime(provider) : null;
-            return new AuditInterceptor(userProvider, timeProvider);
+            var metrics = provider.GetService<FSEntityFrameworkMetrics>();
+            return new AuditInterceptor(userProvider, timeProvider, metrics);
         });
 
         return Builder;
@@ -53,7 +55,8 @@ internal class AuditConfigurationBuilder : IAuditConfigurationBuilder
         Builder.Services.AddScoped<AuditInterceptor>(provider =>
         {
             var userContext = provider.GetRequiredService<TUserContext>();
-            return new AuditInterceptor(() => userContext.CurrentUser);
+            var metrics = provider.GetService<FSEntityFrameworkMetrics>();
+            return new AuditInterceptor(() => userContext.CurrentUser, metrics: metrics);
         });
 
         return Builder;
@@ -67,12 +70,13 @@ internal class AuditConfigurationBuilder : IAuditConfigurationBuilder
     public IFSEntityFrameworkBuilder UsingHttpContext(string claimType = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")
     {
         Builder.Services.AddHttpContextAccessor();
-        
+
         Builder.Services.AddScoped<AuditInterceptor>(provider =>
         {
             var httpContextAccessor = provider.GetRequiredService<Microsoft.AspNetCore.Http.IHttpContextAccessor>();
-            return new AuditInterceptor(() => 
-                httpContextAccessor.HttpContext?.User?.FindFirst(claimType)?.Value);
+            var metrics = provider.GetService<FSEntityFrameworkMetrics>();
+            return new AuditInterceptor(() =>
+                httpContextAccessor.HttpContext?.User?.FindFirst(claimType)?.Value, metrics: metrics);
         });
 
         return Builder;
@@ -85,8 +89,11 @@ internal class AuditConfigurationBuilder : IAuditConfigurationBuilder
     /// <returns>The parent builder for method chaining</returns>
     public IFSEntityFrameworkBuilder UsingStaticUser(string userId)
     {
-        Builder.Services.AddScoped<AuditInterceptor>(_ => 
-            new AuditInterceptor(() => userId));
+        Builder.Services.AddScoped<AuditInterceptor>(provider =>
+        {
+            var metrics = provider.GetService<FSEntityFrameworkMetrics>();
+            return new AuditInterceptor(() => userId, metrics: metrics);
+        });
 
         return Builder;
     }

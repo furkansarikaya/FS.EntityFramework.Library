@@ -335,7 +335,11 @@ public class DomainRepository<TAggregate, TKey> : Domain.IDomainRepository<TAggr
             .First(m => m.Name == "Include" && m.GetParameters().Length == 2 &&
                        m.GetParameters()[1].ParameterType.GetGenericTypeDefinition() == typeof(Expression<>));
 
-        var genericIncludeMethod = includeMethod.MakeGenericMethod(typeof(TAggregate), rootInclude.PropertyType);
+        // Use expression's ReturnType instead of PropertyType:
+        // For reference includes: ReturnType = PropertyType (e.g., Customer)
+        // For collection includes: ReturnType = IEnumerable<PropertyType> (e.g., IEnumerable<OrderItem>)
+        // This ensures the generic type matches the expression's delegate signature
+        var genericIncludeMethod = includeMethod.MakeGenericMethod(typeof(TAggregate), rootInclude.Expression.ReturnType);
 
         var includableQuery = genericIncludeMethod.Invoke(null, [query, rootInclude.Expression]);
 
@@ -400,10 +404,15 @@ public class DomainRepository<TAggregate, TKey> : Domain.IDomainRepository<TAggr
         if (thenIncludeMethod == null)
             return includableQuery;
 
+        // parentInclude.PropertyType is the element type (e.g., OrderItem) which is correct
+        // for TPreviousProperty - the IEnumerable<> wrapper is in the method's parameter type.
+        // currentInclude uses Expression.ReturnType to handle collection ThenIncludes:
+        // For reference: ReturnType = PropertyType (e.g., Product)
+        // For collection: ReturnType = IEnumerable<PropertyType> (e.g., IEnumerable<Tag>)
         var genericThenIncludeMethod = thenIncludeMethod.MakeGenericMethod(
             typeof(TAggregate),
             parentInclude.PropertyType,
-            currentInclude.PropertyType);
+            currentInclude.Expression.ReturnType);
 
         var newIncludableQuery = genericThenIncludeMethod.Invoke(null, [includableQuery, currentInclude.Expression]);
 

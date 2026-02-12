@@ -1,3 +1,4 @@
+using FS.EntityFramework.Library.Diagnostics;
 using FS.EntityFramework.Library.Interceptors;
 using FS.EntityFramework.Library.UnitOfWorks;
 using Microsoft.EntityFrameworkCore;
@@ -45,7 +46,8 @@ public static class DependencyInjection
         {
             var userProvider = () => getCurrentUser(provider);
             Func<DateTime>? timeProvider = getCurrentTime != null ? () => getCurrentTime(provider) : null;
-            return new AuditInterceptor(userProvider, timeProvider);
+            var metrics = provider.GetService<FSEntityFrameworkMetrics>();
+            return new AuditInterceptor(userProvider, timeProvider, metrics);
         });
 
         // Add Unit of Work
@@ -70,7 +72,8 @@ public static class DependencyInjection
         services.AddScoped<AuditInterceptor>(provider =>
         {
             var userContext = provider.GetRequiredService<TUserContext>();
-            return new AuditInterceptor(() => userContext.CurrentUser);
+            var metrics = provider.GetService<FSEntityFrameworkMetrics>();
+            return new AuditInterceptor(() => userContext.CurrentUser, metrics: metrics);
         });
 
         // Add Unit of Work

@@ -7,7 +7,7 @@
 
         <!-- NuGet Package Metadata -->
         <PackageId>FS.EntityFramework.Library.GuidV7</PackageId>
-        <Version>10.0.2</Version>
+        <Version>10.0.3</Version>
         <Authors>Furkan SARIKAYA</Authors>
         <Company>Furkan SARIKAYA</Company>
         <Product>FS EntityFramework Library - GUID Version 7 Extension</Product>
@@ -19,53 +19,23 @@
         <RepositoryUrl>https://github.com/furkansarikaya/FS.EntityFramework.Library</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageReleaseNotes>
-            GUID Version 7 Extension v9.0.7 - Enterprise DDD Implementation
+            GUID Version 7 Extension v10.0.3 - Enterprise DDD Implementation
 
-            🆕 DOMAIN-DRIVEN DESIGN ENHANCEMENTS:
-            - 🏛️ Full DDD compatibility with AggregateRoot&lt;Guid&gt; entities
-            - 🎯 Seamless integration with Domain Events and Value Objects
-            - 📋 Business Rules and Domain Specifications support
-            - 🔄 Domain Unit of Work automatic ID generation
-            - 🏗️ Enterprise-grade aggregate identifier strategy
-
-            🚀 GUID V7 FEATURES:
-            - 🆕 RFC 9562 compliant implementation using .NET 9 native support
-            - 🆕 Automatic GUID Version 7 generation for BaseEntity&lt;Guid&gt; entities
-            - 🆕 Fluent configuration: WithGuidV7() extension method
-            - 🆕 Custom timestamp provider support for deterministic generation
-            - 🆕 Zero external dependencies - uses built-in .NET 9 Guid.CreateVersion7()
+            🆕 FEATURES:
+            - RFC 9562 compliant GUID V7 using .NET 10 native Guid.CreateVersion7()
+            - Automatic generation for BaseEntity&lt;Guid&gt; and AggregateRoot&lt;Guid&gt;
+            - Fluent configuration: WithGuidV7() extension method
+            - Custom timestamp provider support for deterministic generation
+            - Zero external dependencies
 
             🏭 ENTERPRISE PRODUCTION FEATURES:
-            - ✅ Optimal database performance with timestamp-based sequential ordering
-            - ✅ Universal GUID ecosystem compatibility across microservices
-            - ✅ Perfect for event-driven architectures and domain event ordering
-            - ✅ Microsoft native implementation reliability and performance
-            - ✅ Industry standard RFC compliance for enterprise environments
-
-            💡 DDD INTEGRATION EXAMPLES:
-            ```csharp
-            // Automatic GUID V7 for Aggregate Roots
-            public class ProductAggregate : AggregateRoot&lt;Guid&gt; { }
-
-            // Fluent configuration with DDD
-            services.AddFSEntityFramework&lt;DbContext&gt;()
-            .WithGuidV7()
-            .WithDomainDrivenDesign()
-            .WithAutoRepositoryDiscovery()
-            .Complete()
-            .Build();
-            ```
-
-            🎯 PERFECT FOR:
-            - Enterprise Domain-Rich Applications
-            - Event-Driven Microservice Architectures
-            - Multi-tenant SaaS Platforms
-            - Financial and Healthcare Systems
-            - High-throughput Transaction Systems
+            - Optimal database performance with timestamp-based sequential ordering
+            - Universal GUID ecosystem compatibility across microservices
+            - Full DDD compatibility with Domain Events and Value Objects
 
             REQUIREMENTS:
-            - .NET 9+ for native Guid.CreateVersion7() support
-            - Compatible with FS.EntityFramework.Library v9.0.7+
+            - .NET 10+ for native Guid.CreateVersion7() support
+            - Compatible with FS.EntityFramework.Library v10.0.3+
         </PackageReleaseNotes>
 
         <!-- Documentation -->
@@ -92,10 +62,10 @@
 
     <!-- Release Mode: Use PackageReference for proper NuGet dependency -->
     <ItemGroup Condition="'$(Configuration)' == 'Release' AND '$(UseProjectReferences)' != 'true'">
-        <PackageReference Include="FS.EntityFramework.Library" Version="10.0.2" />
+        <PackageReference Include="FS.EntityFramework.Library" Version="10.0.3" />
     </ItemGroup>
 
-    <!-- No external dependencies for GUID V7 - uses .NET 9 native support -->
+    <!-- No external dependencies for GUID V7 - uses .NET 10 native support -->
 
     <ItemGroup>
         <!-- Content Files -->

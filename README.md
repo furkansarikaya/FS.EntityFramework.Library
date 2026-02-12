@@ -114,7 +114,7 @@ dotnet add package FS.EntityFramework.Library.UlidGenerator
 ### Requirements
 
 - **.NET 10.0** or later
-- **Entity Framework Core 10.0.2** or later
+- **Entity Framework Core 10.0.3** or later
 - **Microsoft.AspNetCore.Http.Abstractions 2.3.0** or later (for HttpContext support)
 
 ## 🏗️ Step-by-Step Implementation Guide
@@ -1665,7 +1665,6 @@ var filteredPage = await repository.GetPagedWithFilterAsync(
 // Available filter operators
 // "equals", "notequals", "contains", "startswith", "endswith"
 // "greaterthan", "greaterthanorequal", "lessthan", "lessthanorequal"
-// "isnull", "isnotnull", "isempty", "isnotempty"
 ```
 
 #### Cursor-Based Pagination (v10.0.2+)
@@ -2189,6 +2188,49 @@ public class CachedProductService
         return product;
     }
 }
+```
+
+### Diagnostics & Metrics (v10.0.3+)
+
+The library provides opt-in OpenTelemetry-compatible metrics via `System.Diagnostics.Metrics`. Metrics are **disabled by default** and can be enabled via the fluent configuration API.
+
+#### Enable Metrics
+
+```csharp
+services.AddFSEntityFramework<ApplicationDbContext>()
+    .WithMetrics()  // Enable production metrics
+    .WithAudit()
+        .UsingHttpContext()
+    .Build();
+```
+
+#### Available Metrics
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `repository.operations` | Counter | Total repository operations (tag: operation) |
+| `repository.operations.errors` | Counter | Repository operation errors (tags: operation, error_type) |
+| `repository.operation.duration` | Histogram | Operation duration in ms (tag: operation) |
+| `unitofwork.savechanges` | Counter | SaveChanges calls (tag: status) |
+| `unitofwork.transactions` | Counter | Transaction operations (tag: type) |
+| `unitofwork.cache.hits` | Counter | Repository cache hits |
+| `unitofwork.cache.misses` | Counter | Repository cache misses |
+| `interceptor.audit.entities` | Counter | Audited entities (tag: state) |
+| `interceptor.idgeneration.generated` | Counter | Generated IDs (tag: key_type) |
+| `events.dispatched` | Counter | Dispatched domain events (tag: event_type) |
+| `events.handler.errors` | Counter | Handler errors (tags: event_type, handler_type) |
+| `events.dispatch.duration` | Histogram | Event dispatch duration in ms (tag: event_type) |
+
+All metrics use the meter name `FS.EntityFramework.Library` and are compatible with any OpenTelemetry collector (Prometheus, Grafana, Azure Monitor, etc.).
+
+#### Consume with OpenTelemetry
+
+```csharp
+builder.Services.AddOpenTelemetry()
+    .WithMetrics(metrics =>
+    {
+        metrics.AddMeter("FS.EntityFramework.Library");
+    });
 ```
 
 ## 🎯 Best Practices

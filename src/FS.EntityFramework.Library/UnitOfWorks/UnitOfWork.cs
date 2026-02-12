@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using FS.EntityFramework.Library.Common;
+using FS.EntityFramework.Library.Diagnostics;
 using FS.EntityFramework.Library.Interfaces;
 using FS.EntityFramework.Library.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +19,11 @@ namespace FS.EntityFramework.Library.UnitOfWorks;
 public class UnitOfWork(DbContext context, IServiceProvider serviceProvider)
     : IUnitOfWork
 {
+    /// <summary>
+    /// Optional metrics instance (null when metrics are not enabled)
+    /// </summary>
+    private readonly FSEntityFrameworkMetrics? _metrics = serviceProvider.GetService<FSEntityFrameworkMetrics>();
+
     /// <summary>
     /// Thread-safe repository cache with proper lifecycle management.
     /// Uses weak references to prevent memory leaks and supports safe disposal.
@@ -103,6 +109,7 @@ public class UnitOfWork(DbContext context, IServiceProvider serviceProvider)
             // Validate that cached repository is still alive and valid
             if (cachedEntry.IsValid && cachedEntry.Repository != null)
             {
+                _metrics?.RecordCacheHit();
                 return (IRepository<TEntity, TKey>)cachedEntry.Repository;
             }
             else
@@ -113,6 +120,7 @@ public class UnitOfWork(DbContext context, IServiceProvider serviceProvider)
         }
 
         // Cache miss or invalid entry - create new repository with thread safety
+        _metrics?.RecordCacheMiss();
         return CreateAndCacheRepository<TEntity, TKey>(cacheKey);
     }
 
@@ -159,7 +167,17 @@ public class UnitOfWork(DbContext context, IServiceProvider serviceProvider)
     /// <returns>The number of state entries written to the database</returns>
     public async Task<int> SaveChangesAsync()
     {
-        return await context.SaveChangesAsync();
+        try
+        {
+            var result = await context.SaveChangesAsync();
+            _metrics?.RecordSaveChanges(true);
+            return result;
+        }
+        catch
+        {
+            _metrics?.RecordSaveChanges(false);
+            throw;
+        }
     }
 
     /// <summary>
@@ -169,7 +187,17 @@ public class UnitOfWork(DbContext context, IServiceProvider serviceProvider)
     /// <returns>The number of state entries written to the database</returns>
     public async Task<int> SaveChangesAsync(CancellationToken cancellationToken)
     {
-        return await context.SaveChangesAsync(cancellationToken);
+        try
+        {
+            var result = await context.SaveChangesAsync(cancellationToken);
+            _metrics?.RecordSaveChanges(true);
+            return result;
+        }
+        catch
+        {
+            _metrics?.RecordSaveChanges(false);
+            throw;
+        }
     }
 
     // ===== TRANSACTION MANAGEMENT =====
@@ -185,6 +213,7 @@ public class UnitOfWork(DbContext context, IServiceProvider serviceProvider)
         }
 
         _currentTransaction = await context.Database.BeginTransactionAsync();
+        _metrics?.RecordTransaction("begin");
         return _currentTransaction;
     }
 
@@ -202,6 +231,7 @@ public class UnitOfWork(DbContext context, IServiceProvider serviceProvider)
         {
             await SaveChangesAsync();
             await _currentTransaction.CommitAsync();
+            _metrics?.RecordTransaction("commit");
         }
         catch
         {
@@ -210,8 +240,11 @@ public class UnitOfWork(DbContext context, IServiceProvider serviceProvider)
         }
         finally
         {
-            await _currentTransaction.DisposeAsync();
-            _currentTransaction = null;
+            if (_currentTransaction != null)
+            {
+                await _currentTransaction.DisposeAsync();
+                _currentTransaction = null;
+            }
         }
     }
 
@@ -228,6 +261,7 @@ public class UnitOfWork(DbContext context, IServiceProvider serviceProvider)
         try
         {
             await _currentTransaction.RollbackAsync();
+            _metrics?.RecordTransaction("rollback");
         }
         finally
         {
@@ -355,11 +389,12 @@ public class UnitOfWork(DbContext context, IServiceProvider serviceProvider)
     {
         try
         {
-            // Try to get specific repository implementation first
-            var specificRepository = serviceProvider.CreateScope().ServiceProvider.GetService<IRepository<TEntity, TKey>>();
+            // Try to get specific repository implementation from the current scope
+            // UnitOfWork is already scoped, so no need to create a new scope
+            var specificRepository = serviceProvider.GetService<IRepository<TEntity, TKey>>();
             return specificRepository ??
                    // Fall back to generic repository
-                   new BaseRepository<TEntity, TKey>(context);
+                   new BaseRepository<TEntity, TKey>(context, _metrics);
         }
         catch (Exception ex)
         {
@@ -367,32 +402,6 @@ public class UnitOfWork(DbContext context, IServiceProvider serviceProvider)
             throw new InvalidOperationException(
                 $"Failed to create repository for entity type {typeof(TEntity).Name} with key type {typeof(TKey).Name}. " +
                 "This might indicate a problem with dependency injection configuration or DbContext state.", ex);
-        }
-    }
-
-    /// <summary>
-    /// Performs cache maintenance to remove expired or invalid entries.
-    /// This method helps prevent memory leaks and maintains cache efficiency.
-    /// </summary>
-    private void PerformCacheMaintenance()
-    {
-        if (_repositoryCache.IsEmpty) return;
-
-        var expiredKeys = new List<string>();
-        var cutoffTime = DateTime.UtcNow.AddMinutes(-30); // Consider entries older than 30 minutes as candidates for cleanup
-
-        foreach (var kvp in _repositoryCache)
-        {
-            if (!kvp.Value.IsValid || kvp.Value.CreatedAt < cutoffTime)
-            {
-                expiredKeys.Add(kvp.Key);
-            }
-        }
-
-        // Remove expired entries
-        foreach (var key in expiredKeys)
-        {
-            _repositoryCache.TryRemove(key, out _);
         }
     }
 
@@ -515,12 +524,14 @@ public class UnitOfWork(DbContext context, IServiceProvider serviceProvider)
         errorMessage += "Common causes and solutions:\n";
         errorMessage += "1. Repository not registered: Add your repository to DI using services.AddScoped<IYourRepository, YourRepository>()\n";
         errorMessage += "2. Wrong interface: Ensure you're requesting the correct repository interface\n";
-        errorMessage += "3. Missing assembly reference: Verify the repository assembly is properly referenced\n\n";
+        errorMessage += "3. Missing assembly reference: Verify the repository assembly is properly referenced\n";
 
-        if (registeredServices.Any())
+#if DEBUG
+        errorMessage += "\n";
+        if (registeredServices.Count != 0)
         {
             errorMessage += "Currently registered repository services:\n";
-            errorMessage += string.Join("\n", registeredServices.Take(10)); // Limit to first 10 to avoid spam
+            errorMessage += string.Join("\n", registeredServices.Take(10));
 
             if (registeredServices.Count > 10)
             {
@@ -531,6 +542,7 @@ public class UnitOfWork(DbContext context, IServiceProvider serviceProvider)
         {
             errorMessage += "No repository services are currently registered in the container.";
         }
+#endif
 
         return errorMessage;
     }

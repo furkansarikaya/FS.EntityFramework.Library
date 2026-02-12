@@ -1,4 +1,7 @@
+using System.Collections.Concurrent;
+using System.Reflection;
 using FS.EntityFramework.Library.Common;
+using FS.EntityFramework.Library.Diagnostics;
 using FS.EntityFramework.Library.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -12,16 +15,24 @@ public class AuditInterceptor : SaveChangesInterceptor
 {
     private readonly Func<string?> _getCurrentUser;
     private readonly Func<DateTime> _getCurrentTime;
+    private readonly FSEntityFrameworkMetrics? _metrics;
+
+    /// <summary>
+    /// Cache for PropertyInfo lookups to avoid repeated reflection calls per save operation
+    /// </summary>
+    private static readonly ConcurrentDictionary<(Type EntityType, string PropertyName), PropertyInfo?> PropertyCache = new();
 
     /// <summary>
     /// Creates audit interceptor with user provider function
     /// </summary>
     /// <param name="getCurrentUser">Function to get current user identifier</param>
     /// <param name="getCurrentTime">Function to get current time (optional, defaults to UTC now)</param>
-    public AuditInterceptor(Func<string?> getCurrentUser, Func<DateTime>? getCurrentTime = null)
+    /// <param name="metrics">Optional metrics instance for recording audit operations</param>
+    public AuditInterceptor(Func<string?> getCurrentUser, Func<DateTime>? getCurrentTime = null, FSEntityFrameworkMetrics? metrics = null)
     {
         _getCurrentUser = getCurrentUser;
         _getCurrentTime = getCurrentTime ?? (() => DateTime.UtcNow);
+        _metrics = metrics;
     }
 
     public override InterceptionResult<int> SavingChanges(DbContextEventData eventData, InterceptionResult<int> result)
@@ -47,9 +58,16 @@ public class AuditInterceptor : SaveChangesInterceptor
         var currentUser = _getCurrentUser?.Invoke();
         var now = _getCurrentTime!.Invoke();
 
-        SetCreationAuditProperties(context, now, currentUser);
-        SetModificationAuditProperties(context, now, currentUser);
-        SetSoftDeleteAuditProperties(context, now, currentUser);
+        var addedCount = SetCreationAuditProperties(context, now, currentUser);
+        var modifiedCount = SetModificationAuditProperties(context, now, currentUser);
+        var deletedCount = SetSoftDeleteAuditProperties(context, now, currentUser);
+
+        if (_metrics != null)
+        {
+            if (addedCount > 0) _metrics.RecordAuditEntities("added", addedCount);
+            if (modifiedCount > 0) _metrics.RecordAuditEntities("modified", modifiedCount);
+            if (deletedCount > 0) _metrics.RecordAuditEntities("deleted", deletedCount);
+        }
     }
 
     /// <summary>
@@ -58,13 +76,16 @@ public class AuditInterceptor : SaveChangesInterceptor
     /// <param name="context">The DbContext to process.</param>
     /// <param name="now">The current date and time.</param>
     /// <param name="currentUser">The current user identifier.</param>
-    private static void SetCreationAuditProperties(DbContext context, DateTime now, string? currentUser)
+    private static int SetCreationAuditProperties(DbContext context, DateTime now, string? currentUser)
     {
+        var count = 0;
         foreach (var entry in context.ChangeTracker.Entries<ICreationAuditableEntity>().Where(e => e.State == EntityState.Added))
         {
             SetProperty(entry.Entity, entry.Entity.GetType(), "CreatedAt", now);
             SetProperty(entry.Entity, entry.Entity.GetType(), "CreatedBy", currentUser);
+            count++;
         }
+        return count;
     }
 
     /// <summary>
@@ -73,13 +94,16 @@ public class AuditInterceptor : SaveChangesInterceptor
     /// <param name="context">The DbContext to process.</param>
     /// <param name="now">The current date and time.</param>
     /// <param name="currentUser">The current user identifier.</param>
-    private static void SetModificationAuditProperties(DbContext context, DateTime now, string? currentUser)
+    private static int SetModificationAuditProperties(DbContext context, DateTime now, string? currentUser)
     {
+        var count = 0;
         foreach (var entry in context.ChangeTracker.Entries<IModificationAuditableEntity>().Where(e => e.State == EntityState.Modified))
         {
             SetProperty(entry.Entity, entry.Entity.GetType(), "UpdatedAt", now);
             SetProperty(entry.Entity, entry.Entity.GetType(), "UpdatedBy", currentUser);
+            count++;
         }
+        return count;
     }
 
     /// <summary>
@@ -88,18 +112,19 @@ public class AuditInterceptor : SaveChangesInterceptor
     /// <param name="context">The DbContext to process.</param>
     /// <param name="now">The current date and time.</param>
     /// <param name="currentUser">The current user identifier.</param>
-    private static void SetSoftDeleteAuditProperties(DbContext context, DateTime now, string? currentUser)
+    private static int SetSoftDeleteAuditProperties(DbContext context, DateTime now, string? currentUser)
     {
-        var softDeleteEntries = context.ChangeTracker.Entries<ISoftDelete>()
-            .Where(e => e.State == EntityState.Deleted)
-            .ToList(); // ToList() ile lazy evaluation'ı önle
-
-        if (context?.IsBypassSoftDeleteEnabled() == true)
+        if (context.IsBypassSoftDeleteEnabled())
         {
             context.DisableBypassSoftDelete();
-            return;
+            return 0;
         }
-        
+
+        var softDeleteEntries = context.ChangeTracker.Entries<ISoftDelete>()
+            .Where(e => e.State == EntityState.Deleted)
+            .ToList();
+
+        var count = 0;
         foreach (var entry in softDeleteEntries)
         {
             entry.State = EntityState.Unchanged;
@@ -122,7 +147,10 @@ public class AuditInterceptor : SaveChangesInterceptor
             // Fallback: for EF6/EF7 if ComplexProperties is empty
             foreach (var reference in entry.References)
                 reference.IsModified = false;
+
+            count++;
         }
+        return count;
     }
 
     /// <summary>
@@ -134,7 +162,8 @@ public class AuditInterceptor : SaveChangesInterceptor
     /// <param name="value">The value</param>
     private static void SetProperty(object entity, Type entityType, string propertyName, object? value)
     {
-        var property = entityType.GetProperty(propertyName);
+        var cacheKey = (entityType, propertyName);
+        var property = PropertyCache.GetOrAdd(cacheKey, static key => key.EntityType.GetProperty(key.PropertyName));
         if (property != null && property.CanWrite)
         {
             property.SetValue(entity, value);

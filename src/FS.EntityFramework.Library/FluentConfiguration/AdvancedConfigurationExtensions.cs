@@ -1,3 +1,4 @@
+using FS.EntityFramework.Library.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace FS.EntityFramework.Library.FluentConfiguration;
@@ -7,6 +8,19 @@ namespace FS.EntityFramework.Library.FluentConfiguration;
 /// </summary>
 public static class AdvancedConfigurationExtensions
 {
+    /// <summary>
+    /// Enables OpenTelemetry-compatible production metrics for FS.EntityFramework.Library.
+    /// Metrics are collected via System.Diagnostics.Metrics and can be consumed by any
+    /// OpenTelemetry-compatible collector. Default: metrics are OFF.
+    /// </summary>
+    /// <param name="builder">The FS.EntityFramework builder</param>
+    /// <returns>The builder for method chaining</returns>
+    public static IFSEntityFrameworkBuilder WithMetrics(this IFSEntityFrameworkBuilder builder)
+    {
+        builder.Services.AddSingleton<FSEntityFrameworkMetrics>();
+        return builder;
+    }
+
     /// <summary>
     /// Configures soft delete functionality with global query filters
     /// </summary>

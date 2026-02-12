@@ -7,7 +7,7 @@
 
         <!-- NuGet Package Metadata -->
         <PackageId>FS.EntityFramework.Library</PackageId>
-        <Version>10.0.2</Version>
+        <Version>10.0.3</Version>
         <Authors>Furkan SARIKAYA</Authors>
         <Company>Furkan SARIKAYA</Company>
         <Product>FS EntityFramework Library</Product>
@@ -19,56 +19,31 @@
         <RepositoryUrl>https://github.com/furkansarikaya/FS.EntityFramework.Library</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageReleaseNotes>
-Version 10.0.2 - Comprehensive Projection Support &amp; New Features
+Version 10.0.3 - Security, Performance &amp; Diagnostics
 
-🚀 NEW FEATURES:
+🔒 SECURITY:
+- FilterExpressionBuilder: Field name validation (alphanumeric + dot only)
+- FilterExpressionBuilder: Invalid operator now throws ArgumentException instead of silent bypass
+- FilterExpressionBuilder: Unknown property returns false (safe default) instead of true
+- Soft delete bypass methods restricted to internal access
 
-PROJECTION/SELECT SUPPORT:
-- GetByIdAsync&lt;TResult&gt;(id, selector) - Project single entity by ID
-- GetAllAsync&lt;TResult&gt;(selector) - Project all entities
-- FirstOrDefaultAsync&lt;TResult&gt;(predicate, selector) - Project first match
-- SingleOrDefaultAsync&lt;TResult&gt;(predicate, selector) - Project single match (throws if multiple)
-- FindAsync&lt;TResult&gt;(predicate, selector, orderBy) - Project filtered results
-- GetPagedAsync&lt;TResult&gt;(selector, ...) - Paginated projections
-- GetPagedWithFilterAsync&lt;TResult&gt;(selector, ...) - Filtered pagination with projection
-- GetAsync&lt;TResult&gt;(spec, selector) - Specification with projection
+⚡ PERFORMANCE:
+- Fixed memory leak: removed unnecessary scope creation in UnitOfWork repository resolution
+- AuditInterceptor: PropertyInfo reflection results cached via ConcurrentDictionary
+- IdGenerationInterceptor: Type hierarchy and PropertyInfo cached, boxing optimization for common types
+- DomainEventDispatcher: Events dispatched sequentially for correct ordering (handlers still parallel)
+- Removed unused PerformCacheMaintenance dead code
 
-SPECIFICATION ENHANCEMENTS:
-- ApplySelector&lt;TResult&gt;() - Define projection in specification
-- Include&lt;TProperty&gt;() with ThenInclude chaining - Type-safe nested eager loading
-- IncludeCollection&lt;TProperty&gt;() with ThenInclude/ThenIncludeCollection
-- AsTracking() - Explicit tracking enable
-- AsNoTrackingWithIdentityResolution() - No tracking with identity resolution
-- ApplyDistinct() - Return distinct results
-- ApplyLimit(count) - Limit results without pagination
-- ClearOrdering() - Reset ordering
-- TagWith(tag) - Query tagging for debugging
-- FindWithSelectorAsync() - Execute specification with built-in selector
-- FindPagedAsync() - Returns IPaginate from specification
-- FirstOrDefaultAsync(spec) / SingleOrDefaultAsync(spec) - Single entity from spec
-- FirstOrDefaultAsync&lt;TResult&gt;(spec, selector) - Projected single entity from spec
+🐛 BUG FIXES:
+- SingleOrDefaultAsync&lt;TResult&gt; now correctly calls SingleOrDefaultAsync instead of SingleAsync
+- BulkDeleteAsync uses ISoftDelete interface check instead of fragile reflection
 
-NEW QUERY METHODS:
-- SingleOrDefaultAsync(predicate, includes, disableTracking) - Get exactly one entity
-- AnyAsync(predicate?) - Check existence with optional predicate
-
-CURSOR-BASED PAGINATION:
-- GetCursorPagedAsync() - Efficient pagination for large datasets
-- GetCursorPagedAsync&lt;TResult&gt;() - Cursor pagination with projection
-- ICursorPaginate&lt;T, TCursor&gt; interface
-- HasNext/HasPrevious, FirstCursor/LastCursor support
-
-⚡ IMPROVEMENTS:
-- IDomainRepository.GetByIdAsync now defaults to disableTracking=false
-- IDomainRepository.GetByIdRequiredAsync now defaults to disableTracking=false
-- Projection queries automatically use AsNoTracking for performance
-- Type-safe ThenInclude via Include/IncludeCollection builder pattern
-- IncludeExpressionInfo for advanced include chain tracking
-
-🔧 BREAKING CHANGES:
-- IDomainRepository.GetByIdAsync default changed: disableTracking true → false
-- IDomainRepository.GetByIdRequiredAsync default changed: disableTracking true → false
-- If you relied on previous defaults, explicitly pass disableTracking: true
+📊 NEW: Production Diagnostics (opt-in)
+- OpenTelemetry-compatible metrics via System.Diagnostics.Metrics
+- Repository operation counters, error counters, and duration histograms
+- UnitOfWork save/transaction/cache metrics
+- Interceptor and domain event metrics
+- Enable via .WithMetrics() in fluent configuration
         </PackageReleaseNotes>
 
         <!-- Documentation -->
@@ -95,7 +70,7 @@ CURSOR-BASED PAGINATION:
 
     <!-- Package Dependencies -->
     <ItemGroup>
-        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.2" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.3" />
         <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.9" />
         <PackageReference Include="Microsoft.AspNetCore.Http" Version="2.3.9" />
     </ItemGroup>

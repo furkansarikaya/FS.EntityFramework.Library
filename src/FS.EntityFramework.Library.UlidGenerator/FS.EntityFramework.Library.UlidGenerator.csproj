@@ -7,7 +7,7 @@
 
         <!-- NuGet Package Metadata -->
         <PackageId>FS.EntityFramework.Library.UlidGenerator</PackageId>
-        <Version>10.0.2</Version>
+        <Version>10.0.3</Version>
         <Authors>Furkan SARIKAYA</Authors>
         <Company>Furkan SARIKAYA</Company>
         <Product>FS EntityFramework Library - ULID Extension</Product>
@@ -19,64 +19,27 @@
         <RepositoryUrl>https://github.com/furkansarikaya/FS.EntityFramework.Library</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageReleaseNotes>
-            ULID Extension v9.0.7 - Enterprise DDD Implementation
+            ULID Extension v10.0.3 - Enterprise DDD Implementation
 
-            🆕 DOMAIN-DRIVEN DESIGN ENHANCEMENTS:
-            - 🏛️ Native DDD support with AggregateRoot&lt;Ulid&gt; entities
-            - 🎯 Seamless Domain Events integration with chronological ordering
-            - 📋 Business Rules and Domain Specifications compatibility
-            - 🔄 Domain Unit of Work automatic ULID generation
-            - 🏗️ Enterprise aggregate identifier strategy for distributed systems
-
-            🚀 ULID FEATURES:
-            - 🆕 Automatic ULID generation for BaseEntity&lt;Ulid&gt; entities
-            - 🆕 Fluent configuration: WithUlid() extension method
-            - 🆕 Custom timestamp provider support for deterministic generation
-            - 🆕 Entity Framework optimizations with proper value converters
-            - 🆕 Human-readable, chronologically sortable identifiers
+            🆕 FEATURES:
+            - Automatic ULID generation for BaseEntity&lt;Ulid&gt; and AggregateRoot&lt;Ulid&gt;
+            - Fluent configuration: WithUlid() extension method
+            - Custom timestamp provider support for deterministic generation
+            - Entity Framework optimizations with proper value converters
+            - Human-readable, chronologically sortable identifiers
 
             🏭 ENTERPRISE PRODUCTION FEATURES:
-            - ✅ Zero-configuration setup for most DDD scenarios
-            - ✅ Optimal database performance with sequential ULIDs
-            - ✅ Perfect microservice architecture support with global uniqueness
-            - ✅ Built-in Entity Framework value converters and indexing
-            - ✅ Cross-service event ordering and correlation capabilities
-
-            💡 DDD INTEGRATION EXAMPLES:
-            ```csharp
-            // ULID Aggregate Roots for distributed systems
-            public class OrderAggregate : AggregateRoot&lt;Ulid&gt; { }
-            public class CustomerAggregate : AggregateRoot&lt;Ulid&gt; { }
-
-            // Fluent configuration with DDD
-            services.AddFSEntityFramework&lt;DbContext&gt;()
-            .WithUlid()
-            .WithDomainDrivenDesign()
-            .WithAutoRepositoryDiscovery()
-            .WithDomainValidation()
-            .Complete()
-            .WithDomainEvents()
-            .UsingDefaultDispatcher()
-            .Complete()
-            .Build();
-            ```
-
-            🎯 PERFECT FOR:
-            - Distributed Microservice Architectures
-            - Event-Driven Domain Systems
-            - Multi-tenant SaaS Applications
-            - Financial Transaction Systems
-            - IoT and Real-time Data Processing
-            - Cross-service Domain Event Correlation
+            - Zero-configuration setup for most DDD scenarios
+            - Optimal database performance with sequential ULIDs
+            - Perfect microservice architecture support with global uniqueness
+            - Full DDD compatibility with Domain Events and Value Objects
 
             ⚡ ULID ADVANTAGES:
             - Lexicographically sortable by creation time
             - Collision-resistant across distributed systems
             - Human-readable and debugger-friendly
-            - 26-character string representation
-            - Monotonic ordering within millisecond precision
 
-            Compatible with FS.EntityFramework.Library v9.0.7+
+            Compatible with FS.EntityFramework.Library v10.0.3+
         </PackageReleaseNotes>
 
         <!-- Documentation -->
@@ -103,7 +66,7 @@
 
     <!-- Release Mode: Use PackageReference for proper NuGet dependency -->
     <ItemGroup Condition="'$(Configuration)' == 'Release' AND '$(UseProjectReferences)' != 'true'">
-        <PackageReference Include="FS.EntityFramework.Library" Version="10.0.2" />
+        <PackageReference Include="FS.EntityFramework.Library" Version="10.0.3" />
     </ItemGroup>
 
     <!-- ULID Library Dependency -->

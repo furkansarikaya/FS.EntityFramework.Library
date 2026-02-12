@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using FS.EntityFramework.Library.Models;
 
 namespace FS.EntityFramework.Library.Extensions;
@@ -9,8 +10,22 @@ namespace FS.EntityFramework.Library.Extensions;
 /// Enhanced filter expression builder with culture-safe parsing
 /// Handles international number and date formats properly
 /// </summary>
-public static class FilterExpressionBuilder
+public static partial class FilterExpressionBuilder
 {
+    /// <summary>
+    /// Regex pattern for validating field names: must start with a letter, followed by alphanumeric chars or dots (for navigation)
+    /// </summary>
+    [GeneratedRegex(@"^[a-zA-Z][a-zA-Z0-9.]*$")]
+    private static partial Regex FieldNameValidationRegex();
+
+    /// <summary>
+    /// Set of valid filter operators
+    /// </summary>
+    private static readonly HashSet<string> ValidOperators = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "equals", "notequals", "contains", "startswith", "endswith",
+        "greaterthan", "greaterthanorequal", "lessthan", "lessthanorequal"
+    };
     /// <summary>
     /// Builds a LINQ expression predicate from a filter model for dynamic querying
     /// </summary>
@@ -100,58 +115,66 @@ public static class FilterExpressionBuilder
     /// <returns>An expression that applies the specified filter</returns>
     private static Expression BuildFilterItemExpression<T>(ParameterExpression parameter, FilterItem filterItem)
     {
-        // Özelliği bul
-        var property = typeof(T).GetProperty(filterItem.Field, 
+        // Validate field name: only alphanumeric characters and dots (for navigation properties)
+        if (string.IsNullOrWhiteSpace(filterItem.Field) || !FieldNameValidationRegex().IsMatch(filterItem.Field))
+            return Expression.Constant(false);
+
+        // Validate operator against whitelist
+        if (string.IsNullOrWhiteSpace(filterItem.Operator) || !ValidOperators.Contains(filterItem.Operator))
+            throw new ArgumentException($"Invalid filter operator: '{filterItem.Operator}'. Valid operators: {string.Join(", ", ValidOperators)}");
+
+        // Find the property
+        var property = typeof(T).GetProperty(filterItem.Field,
             BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
-            
+
         if (property == null)
-            return Expression.Constant(true); // Özellik bulunamazsa true döndür
-            
-        // Özellik ifadesi
+            return Expression.Constant(false); // Unknown property returns false (safe default)
+
+        // Property expression
         var propertyExpression = Expression.Property(parameter, property);
-        
+
         // FIXED: Culture-safe value conversion
         var convertedValue = ConvertValueSafely(filterItem.Value, property.PropertyType);
         var valueExpression = Expression.Constant(convertedValue, property.PropertyType);
-        
-        // Operatör tipine göre ifade oluştur
-        switch (filterItem.Operator.ToLower())
+
+        // Build expression based on operator type
+        switch (filterItem.Operator.ToLowerInvariant())
         {
             case "equals":
                 return Expression.Equal(propertyExpression, valueExpression);
-                
+
             case "notequals":
                 return Expression.NotEqual(propertyExpression, valueExpression);
-                
+
             case "contains":
-                if (property.PropertyType != typeof(string)) return Expression.Constant(true);
+                if (property.PropertyType != typeof(string)) return Expression.Constant(false);
                 var containsMethod = typeof(string).GetMethod("Contains", [typeof(string)]);
                 return Expression.Call(propertyExpression, containsMethod!, valueExpression);
 
             case "startswith":
-                if (property.PropertyType != typeof(string)) return Expression.Constant(true);
+                if (property.PropertyType != typeof(string)) return Expression.Constant(false);
                 var startsWithMethod = typeof(string).GetMethod("StartsWith", [typeof(string)]);
                 return Expression.Call(propertyExpression, startsWithMethod!, valueExpression);
 
             case "endswith":
-                if (property.PropertyType != typeof(string)) return Expression.Constant(true);
+                if (property.PropertyType != typeof(string)) return Expression.Constant(false);
                 var endsWithMethod = typeof(string).GetMethod("EndsWith", [typeof(string)]);
                 return Expression.Call(propertyExpression, endsWithMethod!, valueExpression);
 
             case "greaterthan":
                 return Expression.GreaterThan(propertyExpression, valueExpression);
-                
+
             case "greaterthanorequal":
                 return Expression.GreaterThanOrEqual(propertyExpression, valueExpression);
-                
+
             case "lessthan":
                 return Expression.LessThan(propertyExpression, valueExpression);
-                
+
             case "lessthanorequal":
                 return Expression.LessThanOrEqual(propertyExpression, valueExpression);
-                
+
             default:
-                return Expression.Constant(true);
+                throw new ArgumentException($"Invalid filter operator: '{filterItem.Operator}'.");
         }
     }
     

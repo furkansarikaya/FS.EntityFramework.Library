@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using FS.EntityFramework.Library.Common;
+using FS.EntityFramework.Library.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace FS.EntityFramework.Library.Events;
@@ -9,6 +11,7 @@ namespace FS.EntityFramework.Library.Events;
 public class DomainEventDispatcher : IDomainEventDispatcher
 {
     private readonly IServiceProvider _serviceProvider;
+    private readonly FSEntityFrameworkMetrics? _metrics;
 
     /// <summary>
     /// Initializes a new instance of the DomainEventDispatcher class
@@ -17,6 +20,7 @@ public class DomainEventDispatcher : IDomainEventDispatcher
     public DomainEventDispatcher(IServiceProvider serviceProvider)
     {
         _serviceProvider = serviceProvider;
+        _metrics = serviceProvider.GetService<FSEntityFrameworkMetrics>();
     }
 
     /// <summary>
@@ -28,17 +32,57 @@ public class DomainEventDispatcher : IDomainEventDispatcher
     public async Task DispatchAsync(IDomainEvent domainEvent, CancellationToken cancellationToken = default)
     {
         var domainEventType = domainEvent.GetType();
+        var eventTypeName = domainEventType.Name;
+        var sw = _metrics != null ? Stopwatch.StartNew() : null;
+
         var handlerType = typeof(IDomainEventHandler<>).MakeGenericType(domainEventType);
-        
+
         var handlers = _serviceProvider.GetServices(handlerType);
-        
-        var tasks = handlers.Select(handler =>
+        var method = handlerType.GetMethod(nameof(IDomainEventHandler<IDomainEvent>.Handle));
+
+        var tasks = new List<Task>();
+        foreach (var handler in handlers)
         {
-            var method = handlerType.GetMethod(nameof(IDomainEventHandler<IDomainEvent>.Handle));
-            return (Task)method!.Invoke(handler, new object[] { domainEvent, cancellationToken })!;
-        });
+            if (handler == null || method == null) continue;
+
+            try
+            {
+                var result = method.Invoke(handler, [domainEvent, cancellationToken]);
+                if (result is Task task)
+                {
+                    tasks.Add(WrapHandlerTask(task, eventTypeName, handler.GetType().Name));
+                }
+            }
+            catch (Exception ex)
+            {
+                _metrics?.RecordEventHandlerError(eventTypeName, handler.GetType().Name);
+                System.Diagnostics.Debug.WriteLine(
+                    $"Error invoking handler {handler.GetType().Name} for event {eventTypeName}: {ex.Message}");
+            }
+        }
 
         await Task.WhenAll(tasks);
+
+        _metrics?.RecordEventDispatched(eventTypeName);
+        if (sw != null) _metrics?.RecordEventDispatchDuration(eventTypeName, sw.Elapsed.TotalMilliseconds);
+    }
+
+    /// <summary>
+    /// Wraps a handler task to catch async exceptions individually,
+    /// preventing a single faulted handler from crashing the entire dispatch.
+    /// </summary>
+    private async Task WrapHandlerTask(Task handlerTask, string eventTypeName, string handlerTypeName)
+    {
+        try
+        {
+            await handlerTask;
+        }
+        catch (Exception ex)
+        {
+            _metrics?.RecordEventHandlerError(eventTypeName, handlerTypeName);
+            System.Diagnostics.Debug.WriteLine(
+                $"Async error in handler {handlerTypeName} for event {eventTypeName}: {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -49,7 +93,11 @@ public class DomainEventDispatcher : IDomainEventDispatcher
     /// <returns>A task representing the asynchronous operation</returns>
     public async Task DispatchAsync(IEnumerable<IDomainEvent> domainEvents, CancellationToken cancellationToken = default)
     {
-        var tasks = domainEvents.Select(domainEvent => DispatchAsync(domainEvent, cancellationToken));
-        await Task.WhenAll(tasks);
+        // Dispatch events sequentially to preserve ordering (e.g., OrderCreated before OrderItemAdded)
+        // Handlers within each event are still dispatched in parallel
+        foreach (var domainEvent in domainEvents)
+        {
+            await DispatchAsync(domainEvent, cancellationToken);
+        }
     }
 }
