@@ -36,6 +36,12 @@ All notable changes to this project will be documented in this file.
 - **README.md**: Removed undocumented filter operators (`isnull`, `isnotnull`, `isempty`, `isnotempty`) that were never implemented
 
 ### Added
+- **FilterOperator**: Type-safe enum with 15 operators and full IntelliSense support — eliminates string-based operator errors at compile time
+- **FilterBuilder**: Fluent API for constructing filters (`FilterBuilder.Create().WhereEquals(...).WhereIsNull(...).Build()`)
+- **FilterItem constructor**: New `FilterItem(string field, FilterOperator op, string? value)` constructor for type-safe filter creation
+- **New filter operators**: `IsNull`, `IsNotNull`, `IsEmpty`, `IsNotEmpty`, `In`, `NotIn` — all fully implemented in FilterExpressionBuilder
+- **Operator aliases**: Short aliases for all operators (`eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `sw`, `ew`)
+- **WhereIf**: Conditional filter method in FilterBuilder for building dynamic filters from optional parameters
 - **FSEntityFrameworkMetrics**: New opt-in OpenTelemetry-compatible metrics system using `System.Diagnostics.Metrics`
   - Repository operation counters, error counters, and duration histograms
   - UnitOfWork save/transaction/cache metrics

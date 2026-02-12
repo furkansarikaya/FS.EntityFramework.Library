@@ -19,13 +19,55 @@ public static partial class FilterExpressionBuilder
     private static partial Regex FieldNameValidationRegex();
 
     /// <summary>
-    /// Set of valid filter operators
+    /// Maps operator aliases and full names to their canonical lowercase form.
+    /// Both short aliases (eq, gte) and full names (equals, greaterthanorequal) resolve to the same canonical string.
     /// </summary>
-    private static readonly HashSet<string> ValidOperators = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly Dictionary<string, string> OperatorAliases = new(StringComparer.OrdinalIgnoreCase)
     {
-        "equals", "notequals", "contains", "startswith", "endswith",
-        "greaterthan", "greaterthanorequal", "lessthan", "lessthanorequal"
+        // Canonical names (map to themselves)
+        ["equals"] = "equals",
+        ["notequals"] = "notequals",
+        ["contains"] = "contains",
+        ["startswith"] = "startswith",
+        ["endswith"] = "endswith",
+        ["greaterthan"] = "greaterthan",
+        ["greaterthanorequal"] = "greaterthanorequal",
+        ["lessthan"] = "lessthan",
+        ["lessthanorequal"] = "lessthanorequal",
+        ["isnull"] = "isnull",
+        ["isnotnull"] = "isnotnull",
+        ["isempty"] = "isempty",
+        ["isnotempty"] = "isnotempty",
+        ["in"] = "in",
+        ["notin"] = "notin",
+
+        // Short aliases
+        ["eq"] = "equals",
+        ["neq"] = "notequals",
+        ["gt"] = "greaterthan",
+        ["gte"] = "greaterthanorequal",
+        ["lt"] = "lessthan",
+        ["lte"] = "lessthanorequal",
+        ["sw"] = "startswith",
+        ["ew"] = "endswith"
     };
+
+    /// <summary>
+    /// Set of operators that do not require a value parameter.
+    /// </summary>
+    private static readonly HashSet<string> ValuelessOperators = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "isnull", "isnotnull", "isempty", "isnotempty"
+    };
+
+    /// <summary>
+    /// Set of operators that work with comma-separated value lists.
+    /// </summary>
+    private static readonly HashSet<string> SetOperators = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "in", "notin"
+    };
+
     /// <summary>
     /// Builds a LINQ expression predicate from a filter model for dynamic querying
     /// </summary>
@@ -36,11 +78,11 @@ public static partial class FilterExpressionBuilder
     {
         // Parametre ifadesi oluştur (x => ...)
         var parameter = Expression.Parameter(typeof(T), "x");
-    
+
         // Başlangıç olarak "true" ifadesini kullan
         Expression body = Expression.Constant(true);
         var hasFilter = false;
-    
+
         // SearchTerm kontrolü
         if (!string.IsNullOrEmpty(filter.SearchTerm))
         {
@@ -48,7 +90,7 @@ public static partial class FilterExpressionBuilder
             body = searchExpression;
             hasFilter = true;
         }
-    
+
         // Özel filtreler
         foreach (var filterExpression in filter.Filters.Select(filterItem => BuildFilterItemExpression<T>(parameter, filterItem)))
         {
@@ -62,11 +104,11 @@ public static partial class FilterExpressionBuilder
                 hasFilter = true;
             }
         }
-    
+
         // Lambda ifadesi oluştur
         return Expression.Lambda<Func<T, bool>>(body, parameter);
     }
-    
+
     /// <summary>
     /// Builds a search expression that searches across all string properties of the entity
     /// </summary>
@@ -80,34 +122,35 @@ public static partial class FilterExpressionBuilder
         var stringProperties = typeof(T).GetProperties()
             .Where(p => p.PropertyType == typeof(string))
             .ToList();
-            
+
         if (stringProperties.Count == 0)
             return Expression.Constant(true); // Hiç string özellik yoksa true döndür
-            
+
         // Her string özellik için Contains ifadesi oluştur ve OR ile birleştir
         Expression? combinedExpression = null;
-        
+
         foreach (var prop in stringProperties)
         {
             var property = Expression.Property(parameter, prop);
             var containsMethod = typeof(string).GetMethod("Contains", new[] { typeof(string) });
             var searchValue = Expression.Constant(searchTerm);
-            
+
             // null kontrolü ekle (prop != null && prop.Contains(searchTerm))
             var nullCheck = Expression.NotEqual(property, Expression.Constant(null, typeof(string)));
             var containsExpression = Expression.Call(property, containsMethod!, searchValue);
             var safeContainsExpression = Expression.AndAlso(nullCheck, containsExpression);
-            
+
             combinedExpression = combinedExpression == null
                 ? safeContainsExpression
                 : Expression.OrElse(combinedExpression, safeContainsExpression);
         }
-        
+
         return combinedExpression ?? Expression.Constant(true);
     }
-    
+
     /// <summary>
-    /// Builds a filter expression for a specific field and value using the specified operator
+    /// Builds a filter expression for a specific field and value using the specified operator.
+    /// Supports operator aliases, value-less operators, and set operators (in/notin).
     /// </summary>
     /// <typeparam name="T">The entity type</typeparam>
     /// <param name="parameter">The parameter expression for the entity</param>
@@ -119,9 +162,13 @@ public static partial class FilterExpressionBuilder
         if (string.IsNullOrWhiteSpace(filterItem.Field) || !FieldNameValidationRegex().IsMatch(filterItem.Field))
             return Expression.Constant(false);
 
-        // Validate operator against whitelist
-        if (string.IsNullOrWhiteSpace(filterItem.Operator) || !ValidOperators.Contains(filterItem.Operator))
-            throw new ArgumentException($"Invalid filter operator: '{filterItem.Operator}'. Valid operators: {string.Join(", ", ValidOperators)}");
+        // Resolve operator alias to canonical form
+        if (string.IsNullOrWhiteSpace(filterItem.Operator) ||
+            !OperatorAliases.TryGetValue(filterItem.Operator, out var canonicalOperator))
+        {
+            throw new ArgumentException(
+                $"Invalid filter operator: '{filterItem.Operator}'. Valid operators: {string.Join(", ", OperatorAliases.Keys)}");
+        }
 
         // Find the property
         var property = typeof(T).GetProperty(filterItem.Field,
@@ -133,51 +180,145 @@ public static partial class FilterExpressionBuilder
         // Property expression
         var propertyExpression = Expression.Property(parameter, property);
 
-        // FIXED: Culture-safe value conversion
-        var convertedValue = ConvertValueSafely(filterItem.Value, property.PropertyType);
+        // Value-less operators (isnull, isnotnull, isempty, isnotempty)
+        if (ValuelessOperators.Contains(canonicalOperator))
+            return BuildValuelessExpression(propertyExpression, property.PropertyType, canonicalOperator);
+
+        // Set operators (in, notin)
+        if (SetOperators.Contains(canonicalOperator))
+            return BuildInExpression(propertyExpression, property.PropertyType, filterItem.Value, canonicalOperator);
+
+        // Standard operators require value conversion
+        var convertedValue = ConvertValueSafely(filterItem.Value ?? string.Empty, property.PropertyType);
         var valueExpression = Expression.Constant(convertedValue, property.PropertyType);
 
-        // Build expression based on operator type
-        switch (filterItem.Operator.ToLowerInvariant())
+        // Build expression based on canonical operator
+        return canonicalOperator switch
         {
-            case "equals":
-                return Expression.Equal(propertyExpression, valueExpression);
+            "equals" => Expression.Equal(propertyExpression, valueExpression),
+            "notequals" => Expression.NotEqual(propertyExpression, valueExpression),
+            "contains" => BuildStringMethodExpression(property, propertyExpression, valueExpression, "Contains"),
+            "startswith" => BuildStringMethodExpression(property, propertyExpression, valueExpression, "StartsWith"),
+            "endswith" => BuildStringMethodExpression(property, propertyExpression, valueExpression, "EndsWith"),
+            "greaterthan" => Expression.GreaterThan(propertyExpression, valueExpression),
+            "greaterthanorequal" => Expression.GreaterThanOrEqual(propertyExpression, valueExpression),
+            "lessthan" => Expression.LessThan(propertyExpression, valueExpression),
+            "lessthanorequal" => Expression.LessThanOrEqual(propertyExpression, valueExpression),
+            _ => throw new ArgumentException($"Invalid filter operator: '{filterItem.Operator}'.")
+        };
+    }
 
-            case "notequals":
-                return Expression.NotEqual(propertyExpression, valueExpression);
+    /// <summary>
+    /// Builds a string method call expression (Contains, StartsWith, EndsWith).
+    /// Returns constant false for non-string properties.
+    /// </summary>
+    private static Expression BuildStringMethodExpression(
+        PropertyInfo property,
+        MemberExpression propertyExpression,
+        ConstantExpression valueExpression,
+        string methodName)
+    {
+        if (property.PropertyType != typeof(string))
+            return Expression.Constant(false);
 
-            case "contains":
-                if (property.PropertyType != typeof(string)) return Expression.Constant(false);
-                var containsMethod = typeof(string).GetMethod("Contains", [typeof(string)]);
-                return Expression.Call(propertyExpression, containsMethod!, valueExpression);
+        var method = typeof(string).GetMethod(methodName, [typeof(string)]);
+        return Expression.Call(propertyExpression, method!, valueExpression);
+    }
 
-            case "startswith":
-                if (property.PropertyType != typeof(string)) return Expression.Constant(false);
-                var startsWithMethod = typeof(string).GetMethod("StartsWith", [typeof(string)]);
-                return Expression.Call(propertyExpression, startsWithMethod!, valueExpression);
+    /// <summary>
+    /// Builds an expression for value-less operators: isnull, isnotnull, isempty, isnotempty.
+    /// Handles nullable types, reference types, and non-nullable value types correctly.
+    /// </summary>
+    /// <param name="propertyExpression">The property access expression.</param>
+    /// <param name="propertyType">The CLR type of the property.</param>
+    /// <param name="canonicalOperator">The canonical operator string (lowercase).</param>
+    /// <returns>The boolean expression for the value-less check.</returns>
+    private static Expression BuildValuelessExpression(
+        MemberExpression propertyExpression,
+        Type propertyType,
+        string canonicalOperator)
+    {
+        var isNullableOrReference = !propertyType.IsValueType || Nullable.GetUnderlyingType(propertyType) != null;
 
-            case "endswith":
-                if (property.PropertyType != typeof(string)) return Expression.Constant(false);
-                var endsWithMethod = typeof(string).GetMethod("EndsWith", [typeof(string)]);
-                return Expression.Call(propertyExpression, endsWithMethod!, valueExpression);
+        switch (canonicalOperator)
+        {
+            case "isnull":
+                return isNullableOrReference
+                    ? Expression.Equal(propertyExpression, Expression.Constant(null, propertyType))
+                    : Expression.Constant(false);
 
-            case "greaterthan":
-                return Expression.GreaterThan(propertyExpression, valueExpression);
+            case "isnotnull":
+                return isNullableOrReference
+                    ? Expression.NotEqual(propertyExpression, Expression.Constant(null, propertyType))
+                    : Expression.Constant(true);
 
-            case "greaterthanorequal":
-                return Expression.GreaterThanOrEqual(propertyExpression, valueExpression);
+            case "isempty":
+                if (propertyType != typeof(string))
+                    return Expression.Constant(false);
+                // x.Prop == null || x.Prop == ""
+                var isNullExpr = Expression.Equal(propertyExpression, Expression.Constant(null, typeof(string)));
+                var isEmptyExpr = Expression.Equal(propertyExpression, Expression.Constant(string.Empty));
+                return Expression.OrElse(isNullExpr, isEmptyExpr);
 
-            case "lessthan":
-                return Expression.LessThan(propertyExpression, valueExpression);
-
-            case "lessthanorequal":
-                return Expression.LessThanOrEqual(propertyExpression, valueExpression);
+            case "isnotempty":
+                if (propertyType != typeof(string))
+                    return Expression.Constant(false);
+                // x.Prop != null && x.Prop != ""
+                var notNullExpr = Expression.NotEqual(propertyExpression, Expression.Constant(null, typeof(string)));
+                var notEmptyExpr = Expression.NotEqual(propertyExpression, Expression.Constant(string.Empty));
+                return Expression.AndAlso(notNullExpr, notEmptyExpr);
 
             default:
-                throw new ArgumentException($"Invalid filter operator: '{filterItem.Operator}'.");
+                return Expression.Constant(false);
         }
     }
-    
+
+    /// <summary>
+    /// Builds an IN or NOT IN expression from a comma-separated value string.
+    /// Parses values, converts each to the target property type, and generates a
+    /// <c>list.Contains(x.Prop)</c> expression that EF Core translates to <c>WHERE Prop IN (...)</c>.
+    /// </summary>
+    /// <param name="propertyExpression">The property access expression.</param>
+    /// <param name="propertyType">The CLR type of the property.</param>
+    /// <param name="value">Comma-separated values (e.g., "1,2,3").</param>
+    /// <param name="canonicalOperator">"in" or "notin".</param>
+    /// <returns>The boolean expression for the set membership check.</returns>
+    private static Expression BuildInExpression(
+        MemberExpression propertyExpression,
+        Type propertyType,
+        string? value,
+        string canonicalOperator)
+    {
+        // Parse comma-separated values
+        var rawValues = (value ?? string.Empty)
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+        // Empty set semantics: IN () -> false, NOT IN () -> true
+        if (rawValues.Length == 0)
+            return Expression.Constant(canonicalOperator == "notin");
+
+        // Build a typed list and convert each value
+        var listType = typeof(List<>).MakeGenericType(propertyType);
+        var list = Activator.CreateInstance(listType)!;
+        var addMethod = listType.GetMethod("Add")!;
+
+        foreach (var rawValue in rawValues)
+        {
+            var converted = ConvertValueSafely(rawValue, propertyType);
+            addMethod.Invoke(list, [converted]);
+        }
+
+        // list.Contains(x.Prop)
+        var listExpression = Expression.Constant(list, listType);
+        var containsMethod = listType.GetMethod("Contains", [propertyType])!;
+        var containsCall = Expression.Call(listExpression, containsMethod, propertyExpression);
+
+        // NOT IN -> negate
+        return canonicalOperator == "notin"
+            ? Expression.Not(containsCall)
+            : containsCall;
+    }
+
     /// <summary>
     /// FIXED: Culture-safe value conversion that handles international formats
     /// Converts a string value to the target type using invariant culture for consistency
@@ -189,36 +330,36 @@ public static partial class FilterExpressionBuilder
     {
         if (string.IsNullOrEmpty(value))
             return GetDefaultValue(targetType);
-            
+
         var underlyingType = Nullable.GetUnderlyingType(targetType) ?? targetType;
-        
+
         try
         {
             // CRITICAL FIX: Use InvariantCulture for consistent parsing across different locales
             // This prevents issues where "1,5" is parsed differently in TR vs EN cultures
-            
+
             if (underlyingType == typeof(bool))
             {
                 // Handle various boolean representations
                 var lowerValue = value.ToLowerInvariant();
                 return lowerValue is "true" or "1" or "yes" or "on" or "enabled";
             }
-                
+
             if (underlyingType == typeof(int))
                 return int.Parse(value, CultureInfo.InvariantCulture);
-                
+
             if (underlyingType == typeof(long))
                 return long.Parse(value, CultureInfo.InvariantCulture);
-                
+
             if (underlyingType == typeof(decimal))
                 return decimal.Parse(value, CultureInfo.InvariantCulture);
-                
+
             if (underlyingType == typeof(double))
                 return double.Parse(value, CultureInfo.InvariantCulture);
-                
+
             if (underlyingType == typeof(float))
                 return float.Parse(value, CultureInfo.InvariantCulture);
-                
+
             if (underlyingType == typeof(DateTime))
             {
                 // Try multiple DateTime formats for better compatibility
@@ -228,23 +369,23 @@ public static partial class FilterExpressionBuilder
                 // Fallback: try ISO 8601 format
                 return DateTime.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var isoResult) ? isoResult : DateTime.MinValue;
             }
-                
+
             if (underlyingType == typeof(DateOnly))
             {
                 return DateOnly.TryParse(value, CultureInfo.InvariantCulture, out var dateOnlyResult) ? dateOnlyResult : DateOnly.MinValue;
             }
-                
+
             if (underlyingType.IsEnum)
             {
                 // Try case-insensitive enum parsing
                 return Enum.TryParse(underlyingType, value, true, out var enumResult) ? enumResult : Enum.GetValues(underlyingType).GetValue(0); // Return first enum value as default
             }
-                
+
             if (underlyingType == typeof(Guid))
             {
                 return Guid.TryParse(value, out var guidResult) ? guidResult : Guid.Empty;
             }
-                
+
             // String ve diğer tipler için - use InvariantCulture
             return Convert.ChangeType(value, underlyingType, CultureInfo.InvariantCulture);
         }
@@ -255,7 +396,7 @@ public static partial class FilterExpressionBuilder
             return GetDefaultValue(targetType);
         }
     }
-    
+
     /// <summary>
     /// Gets the default value for the specified type
     /// </summary>

@@ -452,7 +452,9 @@ public record CreateProductRequest(string Name, decimal Price, string Descriptio
 
 ### Step 8: Implement Dynamic Filtering
 
-The library provides powerful dynamic filtering capabilities:
+The library provides powerful dynamic filtering capabilities with a type-safe fluent API.
+
+#### Type-Safe Filtering with FilterBuilder (Recommended)
 
 ```csharp
 // Services/ProductSearchService.cs
@@ -461,54 +463,28 @@ using FS.EntityFramework.Library.Models;
 public class ProductSearchService
 {
     private readonly IUnitOfWork _unitOfWork;
-    
+
     public ProductSearchService(IUnitOfWork unitOfWork)
     {
         _unitOfWork = unitOfWork;
     }
-    
+
     public async Task<IPaginate<Product>> SearchProductsAsync(ProductFilterRequest request)
     {
         var repository = _unitOfWork.GetRepository<Product, int>();
-        
-        var filter = new FilterModel
-        {
-            SearchTerm = request.SearchTerm, // Searches across all string properties
-            Filters = new List<FilterItem>()
-        };
-        
-        // Add price range filtering
-        if (request.MinPrice.HasValue)
-        {
-            filter.Filters.Add(new FilterItem
-            {
-                Field = nameof(Product.Price),
-                Operator = "greaterthanorequal",
-                Value = request.MinPrice.Value.ToString()
-            });
-        }
-        
-        if (request.MaxPrice.HasValue)
-        {
-            filter.Filters.Add(new FilterItem
-            {
-                Field = nameof(Product.Price),
-                Operator = "lessthanorequal",
-                Value = request.MaxPrice.Value.ToString()
-            });
-        }
-        
-        // Add category filtering
-        if (request.CategoryId.HasValue)
-        {
-            filter.Filters.Add(new FilterItem
-            {
-                Field = nameof(Product.CategoryId),
-                Operator = "equals",
-                Value = request.CategoryId.Value.ToString()
-            });
-        }
-        
+
+        // Type-safe fluent API with compile-time validated operators
+        var filter = FilterBuilder.Create()
+            .Search(request.SearchTerm)
+            .WhereIf(request.MinPrice.HasValue, nameof(Product.Price),
+                     FilterOperator.GreaterThanOrEqual, request.MinPrice?.ToString())
+            .WhereIf(request.MaxPrice.HasValue, nameof(Product.Price),
+                     FilterOperator.LessThanOrEqual, request.MaxPrice?.ToString())
+            .WhereIf(request.CategoryId.HasValue, nameof(Product.CategoryId),
+                     FilterOperator.Equals, request.CategoryId?.ToString())
+            .WhereIsNull(nameof(Product.DeletedAt))
+            .Build();
+
         return await repository.GetPagedWithFilterAsync(
             filter,
             request.Page,
@@ -526,6 +502,35 @@ public record ProductFilterRequest(
     int? CategoryId = null,
     int Page = 1,
     int PageSize = 10);
+```
+
+#### Type-Safe FilterItem Constructor
+
+You can also construct filter items directly with the type-safe enum:
+
+```csharp
+var filter = new FilterModel
+{
+    SearchTerm = "laptop",
+    Filters = new List<FilterItem>
+    {
+        new(nameof(Product.Price), FilterOperator.GreaterThanOrEqual, "500"),
+        new(nameof(Product.CategoryId), FilterOperator.Equals, "1"),
+        new(nameof(Product.Status), FilterOperator.In, "1,2,3"),
+        new(nameof(Product.DeletedAt), FilterOperator.IsNull)
+    }
+};
+```
+
+#### String-Based Filtering (Backward Compatible)
+
+The original string-based API still works and now supports short aliases:
+
+```csharp
+// All of these are equivalent:
+new FilterItem { Field = "Price", Operator = "greaterthanorequal", Value = "500" }
+new FilterItem { Field = "Price", Operator = "gte", Value = "500" }
+new FilterItem("Price", FilterOperator.GreaterThanOrEqual, "500")
 ```
 
 ### Step 9: Create API Controllers
@@ -1662,9 +1667,11 @@ var filteredPage = await repository.GetPagedWithFilterAsync(
     includes: new List<Expression<Func<Product, object>>> { p => p.Category }
 );
 
-// Available filter operators
-// "equals", "notequals", "contains", "startswith", "endswith"
-// "greaterthan", "greaterthanorequal", "lessthan", "lessthanorequal"
+// Available filter operators (full name / alias):
+// "equals" (eq), "notequals" (neq), "contains", "startswith" (sw), "endswith" (ew)
+// "greaterthan" (gt), "greaterthanorequal" (gte), "lessthan" (lt), "lessthanorequal" (lte)
+// "isnull", "isnotnull", "isempty", "isnotempty" (no value required)
+// "in", "notin" (comma-separated values, e.g. "1,2,3")
 ```
 
 #### Cursor-Based Pagination (v10.0.2+)
