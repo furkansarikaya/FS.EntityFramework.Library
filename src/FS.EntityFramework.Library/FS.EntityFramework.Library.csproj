@@ -7,7 +7,7 @@
 
         <!-- NuGet Package Metadata -->
         <PackageId>FS.EntityFramework.Library</PackageId>
-        <Version>10.0.3</Version>
+        <Version>10.0.5</Version>
         <Authors>Furkan SARIKAYA</Authors>
         <Company>Furkan SARIKAYA</Company>
         <Product>FS EntityFramework Library</Product>
@@ -70,7 +70,7 @@ Version 10.0.3 - Security, Performance &amp; Diagnostics
 
     <!-- Package Dependencies -->
     <ItemGroup>
-        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.3" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.5" />
         <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.9" />
         <PackageReference Include="Microsoft.AspNetCore.Http" Version="2.3.9" />
     </ItemGroup>
